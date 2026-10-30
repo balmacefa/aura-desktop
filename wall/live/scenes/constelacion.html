@@ -1,0 +1,51 @@
+<!doctype html><meta charset="utf-8"><title>AuraLive</title>
+<!-- Constelación: ~120 nodos derivan y se unen con líneas finas si están cerca; el cursor los atrae y teje un halo de enlaces; el clic lanza una onda de choque; la CPU acelera la deriva; de noche brillan más. -->
+<script src="../lib/aura.js"></script>
+<script>
+const c = Aura.canvas(), g = c.getContext('2d'), N = 120, bg = Aura.rgb(0), A = Aura.rgb(1);
+const cols = [A, Aura.mix(A, [255, 255, 255], .45), Aura.mix(Aura.rgb(2), A, .55), Aura.mix(Aura.rgb(3), A, .6)];
+const nodes = [], waves = [];
+for (let i = 0; i < N; i++) nodes.push({ x: Math.random(), y: Math.random(), vx: (Math.random() - .5) * .02, vy: (Math.random() - .5) * .02,
+  r: .8 + Math.random() * 1.8, col: cols[i % 4], ph: Math.random() * 6.283 });
+Aura.onFrame((dt, s) => {
+  const W = c.width, H = c.height, D = s.dpr, speed = 1 + s.cpu * 3, glow = .6 + .6 * s.night;
+  const mx = s.sx * W, my = s.sy * H, link = 150 * D, curR = 240 * D;
+  g.globalCompositeOperation = 'source-over';
+  g.fillStyle = Aura.css(Aura.mix(bg, [0, 0, 0], .2 * s.night), .35); g.fillRect(0, 0, W, H);
+  if (s.clicked) waves.push({ x: mx, y: my, t: 0 });
+  for (let i = waves.length - 1; i >= 0; i--) { waves[i].t += dt; if (waves[i].t > 1.4) waves.splice(i, 1); }
+  const P = nodes.map(n => {
+    n.vx += (Math.random() - .5) * .01 * speed * dt; n.vy += (Math.random() - .5) * .01 * speed * dt;
+    let x = n.x * W, y = n.y * H, dx = mx - x, dy = my - y, d = Math.hypot(dx, dy) + 1e-3;
+    if (d < curR) { const k = (1 - d / curR); const f = (d > 60 * D ? 1 : d / (60 * D)) * k * .5 * dt / W; n.vx += dx * f * W / d * .4; n.vy += dy * f * H / d * .4; }
+    for (const w of waves) { const wx = x - w.x, wy = y - w.y, wd = Math.hypot(wx, wy) + 1e-3, rad = w.t * 900 * D, band = 90 * D;
+      const e = Math.abs(wd - rad); if (e < band) { const f = (1 - e / band) * (1 - w.t / 1.4) * 1.6 * dt; n.vx += wx / wd * f * W / W * .9; n.vy += wy / wd * f * H / H * .9; } }
+    n.vx *= 1 - .6 * dt; n.vy *= 1 - .6 * dt;
+    const sp = Math.hypot(n.vx, n.vy), base = .012 * speed; if (sp < base * .5) { n.vx += (Math.random() - .5) * .004; n.vy += (Math.random() - .5) * .004; }
+    n.x += n.vx * speed * dt * (W > H ? H / W : 1) * 1; n.y += n.vy * speed * dt;
+    if (n.x < -.02) n.x = 1.02; else if (n.x > 1.02) n.x = -.02; if (n.y < -.02) n.y = 1.02; else if (n.y > 1.02) n.y = -.02;
+    return { x: n.x * W, y: n.y * H, n, d: Math.hypot(n.x * W - mx, n.y * H - my) };
+  });
+  g.globalCompositeOperation = 'lighter'; g.lineCap = 'round';
+  g.lineWidth = Math.max(1, .8 * D);
+  for (let i = 0; i < N; i++) for (let j = i + 1; j < N; j++) {
+    const a = P[i], b = P[j], dx = a.x - b.x; if (dx > link || dx < -link) continue;
+    const dy = a.y - b.y, d2 = dx * dx + dy * dy; if (d2 > link * link) continue;
+    const k = 1 - Math.sqrt(d2) / link, near = Math.max(0, 1 - Math.min(a.d, b.d) / curR);
+    g.strokeStyle = Aura.css(Aura.mix(a.n.col, b.n.col, .5), (.22 * k + .35 * near * k) * glow);
+    g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.stroke();
+  }
+  // halo de enlaces del cursor
+  g.lineWidth = Math.max(1, .9 * D);
+  for (const p of P) if (p.d < curR) { const k = 1 - p.d / curR;
+    g.strokeStyle = Aura.css(cols[1], .5 * k * glow); g.beginPath(); g.moveTo(mx, my); g.lineTo(p.x, p.y); g.stroke(); }
+  const hg = g.createRadialGradient(mx, my, 0, mx, my, 70 * D); hg.addColorStop(0, Aura.css(cols[1], .22 * glow)); hg.addColorStop(1, Aura.css(cols[1], 0));
+  g.fillStyle = hg; g.beginPath(); g.arc(mx, my, 70 * D, 0, 6.283); g.fill();
+  for (const w of waves) { const k = 1 - w.t / 1.4; g.strokeStyle = Aura.css(cols[1], .35 * k * glow); g.lineWidth = 1.5 * D;
+    g.beginPath(); g.arc(w.x, w.y, w.t * 900 * D, 0, 6.283); g.stroke(); }
+  for (const p of P) { const n = p.n, near = Math.max(0, 1 - p.d / curR), tw = .75 + .25 * Math.sin(s.t * 1.6 + n.ph), r = (n.r + near * 1.5) * D;
+    const gr = g.createRadialGradient(p.x, p.y, 0, p.x, p.y, r * 5); gr.addColorStop(0, Aura.css(n.col, (.45 + .4 * near) * tw * glow)); gr.addColorStop(1, Aura.css(n.col, 0));
+    g.fillStyle = gr; g.beginPath(); g.arc(p.x, p.y, r * 5, 0, 6.283); g.fill();
+    g.fillStyle = Aura.css(cols[1], (.7 + .3 * near) * tw * Math.min(1, glow)); g.beginPath(); g.arc(p.x, p.y, r, 0, 6.283); g.fill(); }
+});
+</script>

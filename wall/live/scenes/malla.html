@@ -1,0 +1,72 @@
+<!doctype html><meta charset="utf-8"><title>AuraLive</title>
+<!-- Malla: océano de alambre en perspectiva; el cursor deja ondas como gotas, el clic lanza una ola grande, el cursor inclina la cámara, la CPU sube las olas. -->
+<script src="../lib/aura.js"></script>
+<script>
+const c = Aura.canvas(), g = c.getContext('2d');
+const NX = 64, NZ = 54, SX = 1.25, Z0 = 3, SZ = 1.1, HC = 5.5;      // columnas, filas, separación, z inicial, altura de cámara
+const H = new Float32Array((NX + 1) * (NZ + 1)), PX = new Float32Array(H.length), PY = new Float32Array(H.length), PD = new Float32Array(H.length);
+const R = [], B = 7;                                                // ondas activas, cubos de profundidad
+const bg = Aura.rgb(0), c1 = Aura.rgb(1), c2 = Aura.rgb(2), c3 = Aura.rgb(3);
+let yaw = 0, pit = .3, lx = null, lz = null, acc = 0;
+
+function cam(s) { return { f: c.height * 1.0, cx: c.width / 2, cy: c.height * .42 }; }
+function toWorld(px, py, k) {                                       // pantalla -> plano y=0
+  const u = (px - k.cx) / k.f, v = -(py - k.cy) / k.f, cp = Math.cos(pit), sp = Math.sin(pit), ca = Math.cos(yaw), sa = Math.sin(yaw);
+  const dy = v * cp - sp, z1 = cp + v * sp, dx = u * ca - z1 * sa, dz = u * sa + z1 * ca;
+  const t = dy < -.02 ? HC / -dy : 70; return [dx * t, Math.min(dz * t, 70)];
+}
+function drop(x, z, amp, wd, sp, k) { if (R.length > 60) R.shift(); R.push({ x, z, a: amp, w: wd, c: sp, k, t: 0 }); }
+
+Aura.onFrame((dt, s) => {
+  const W = c.width, Hh = c.height, D = s.dpr, night = s.night, cpu = s.cpu;
+  yaw += ((s.sx - .5) * -.16 - yaw) * Math.min(1, dt * 4); pit += ((.3 + (s.sy - .5) * .08) - pit) * Math.min(1, dt * 4);
+  const k = cam(s), cp = Math.cos(pit), sp = Math.sin(pit), ca = Math.cos(yaw), sa = Math.sin(yaw);
+  const amp = .45 + cpu * 1.8, tm = s.t;
+  // cursor -> gotas
+  const [wx, wz] = toWorld(s.sx * W, s.sy * Hh, k);
+  const mv = Math.hypot(s.vx, s.vy); acc += dt;
+  if (lx !== null && acc > .09 && (mv > .05 || Math.hypot(wx - lx, wz - lz) > 1)) { acc = 0; drop(wx, wz, .35 + Math.min(mv, 2) * .5, 1.6, 7, 2.2); lx = wx; lz = wz; }
+  if (lx === null) { lx = wx; lz = wz; }
+  if (s.clicked) drop(wx, wz, 2.6 + cpu, 3.2, 11, 1.1);
+  for (let i = R.length - 1; i >= 0; i--) { R[i].t += dt; if (R[i].t > 6) R.splice(i, 1); }
+  // alturas y proyección
+  for (let j = 0, n = 0; j <= NZ; j++) for (let i = 0; i <= NX; i++, n++) {
+    const x = (i - NX / 2) * SX, z = Z0 + j * SZ;
+    let h = (Math.sin(x * .22 + tm * .7) * Math.cos(z * .18 - tm * .5) * .8 + Math.sin(x * .09 - z * .13 + tm * .3) * .9) * amp;
+    for (let r = 0; r < R.length; r++) { const q = R[r], dx = x - q.x, dz = z - q.z, d = Math.sqrt(dx * dx + dz * dz), e = d - q.c * q.t;
+      const env = Math.exp(-(e * e) / (q.w * q.w)); if (env > .01) h += q.a * env * Math.cos(e * q.k) * Math.exp(-q.t * .45) / Math.sqrt(1 + d * .25); }
+    H[n] = h;
+    const X0 = x, Y0 = h - HC, Z00 = z, X1 = X0 * ca + Z00 * sa, Z1 = -X0 * sa + Z00 * ca, Y2 = Y0 * cp + Z1 * sp, Z2 = Z1 * cp - Y0 * sp;
+    if (Z2 < .3) { PD[n] = -1; continue; }
+    PX[n] = k.cx + k.f * X1 / Z2; PY[n] = k.cy - k.f * Y2 / Z2; PD[n] = Z1;
+  }
+  // fondo: noche oscura, día claro
+  const base = Aura.mix(Aura.mix(bg, [255, 255, 255], .78), Aura.mix(bg, [0, 0, 0], .35), night);
+  const hor = Aura.mix(base, night > .5 ? c2 : c1, night > .5 ? .5 : .12);
+  const bgr = g.createLinearGradient(0, 0, 0, Hh); bgr.addColorStop(0, Aura.css(base)); bgr.addColorStop(k.cy / Hh, Aura.css(hor)); bgr.addColorStop(1, Aura.css(base));
+  g.globalCompositeOperation = 'source-over'; g.fillStyle = bgr; g.fillRect(0, 0, W, Hh);
+  // líneas por cubo (profundidad x altura)
+  const paths = []; for (let i = 0; i < B * 3; i++) paths.push(new Path2D());
+  const ZMAX = Z0 + NZ * SZ, seg = (a, b) => {
+    if (PD[a] < 0 || PD[b] < 0) return;
+    const z = (PD[a] + PD[b]) / 2, hh = (H[a] + H[b]) / 2, zb = Math.max(0, Math.min(B - 1, Math.floor(Math.pow(Math.max(0, (z - Z0) / (ZMAX - Z0)), .7) * B)));
+    const hb = hh > .9 ? 2 : hh < -.5 ? 0 : 1, p = paths[zb * 3 + hb]; p.moveTo(PX[a], PY[a]); p.lineTo(PX[b], PY[b]);
+  };
+  for (let j = 0; j <= NZ; j++) for (let i = 0; i <= NX; i++) { const n = j * (NX + 1) + i; if (i < NX) seg(n, n + 1); if (j < NZ) seg(n, n + NX + 1); }
+  g.globalCompositeOperation = night > .5 ? 'lighter' : 'source-over'; g.lineCap = 'round';
+  const dayLine = Aura.mix(c1, bg, .35);
+  for (let zb = 0; zb < B; zb++) {
+    const fade = Math.pow(1 - zb / B, 1.4);                         // se desvanece hacia el horizonte
+    for (let hb = 0; hb < 3; hb++) {
+      const col = hb === 2 ? Aura.mix(c1, [255, 255, 255], .35 * night) : hb === 1 ? Aura.mix(c1, c3, .5) : Aura.mix(c2, c1, .45 + .3 * night);
+      const dcol = Aura.mix(col, bg, .3 * (1 - hb / 2));
+      g.strokeStyle = Aura.css(night > .5 ? col : dcol, (.12 + .8 * fade) * (night > .5 ? .55 + .35 * night : .75));
+      g.lineWidth = (.6 + 1.6 * fade + (hb === 2 ? .5 : 0)) * D; g.stroke(paths[zb * 3 + hb]);
+    }
+  }
+  // brillo suave bajo el horizonte
+  g.globalCompositeOperation = 'source-over';
+  const fg = g.createLinearGradient(0, k.cy - Hh * .08, 0, k.cy + Hh * .12); fg.addColorStop(0, Aura.css(hor, .85)); fg.addColorStop(1, Aura.css(hor, 0));
+  g.fillStyle = fg; g.fillRect(0, k.cy - Hh * .08, W, Hh * .2);
+});
+</script>

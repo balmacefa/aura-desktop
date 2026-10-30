@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+.godot/
+aura.json
+wall/media/custom.mp4
