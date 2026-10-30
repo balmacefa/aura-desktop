@@ -1,7 +1,7 @@
 """Prueba de la técnica DwmThumbnailPlayer de Lively: ffplay como ventana normal fuera de pantalla y su imagen
 proyectada en el escritorio con DwmRegisterThumbnail. Uso: python dwm_test.py <workerw|progman> <video> [segundos]"""
 import ctypes, ctypes.wintypes as wt, os, shutil, subprocess, sys, time
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import aurawall as a
 
 u, dwm = a.u32, ctypes.windll.dwmapi

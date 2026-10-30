@@ -1,0 +1,8 @@
+[project]
+name = "aura-desktop"
+version = "1.0.0"
+description = "Escritorio personalizado para Windows 10/11: fondos animados e interactivos y widgets"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+dependencies = []

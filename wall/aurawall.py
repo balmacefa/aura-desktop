@@ -12,6 +12,14 @@ Uso:  python aurawall.py run <archivo>      en primer plano (Ctrl+C para salir)
 import ctypes, ctypes.wintypes as wt, json, os, shutil, subprocess, sys, time
 
 u32, k32 = ctypes.windll.user32, ctypes.windll.kernel32
+try:                                                                        # registro compartido (aura_log.py en la raíz del proyecto)
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    import aura_log
+    log = aura_log.get('wall')
+except Exception:                                                           # sin el módulo (copia suelta) la app sigue funcionando
+    import logging
+    log = logging.getLogger('aura.wall')
+
 ntdll = ctypes.windll.ntdll
 u32.SetProcessDPIAware()
 
@@ -157,8 +165,10 @@ def set_suspended(pid, suspend):
 
 def write_state(**kw):
     os.makedirs(STATE_DIR, exist_ok=True)
-    with open(STATE, 'w') as f:
+    tmp = STATE + '.tmp'                                                    # atómico: los demás procesos leen este archivo a menudo
+    with open(tmp, 'w') as f:
         json.dump(kw, f)
+    os.replace(tmp, STATE)
 
 
 def read_state():
@@ -180,7 +190,7 @@ def alive(pid):
 def run(path, pause_on_battery=True):
     ffplay = shutil.which('ffplay')
     if not ffplay:
-        sys.exit('ffplay no encontrado (winget install Gyan.FFmpeg)')
+        log.error('ffplay no encontrado'); sys.exit('ffplay no encontrado (winget install Gyan.FFmpeg)')
     w, h = screen_size()
     proc = subprocess.Popen([ffplay, '-noborder', '-loop', '0', '-an', '-loglevel', 'quiet',
                              '-x', str(w), '-y', str(h), '-left', '-32000', '-top', '0',   # nace fuera de pantalla; embed() la coloca en 0,0
@@ -188,9 +198,10 @@ def run(path, pause_on_battery=True):
                             env={**os.environ, 'SDL_RENDER_DRIVER': 'direct3d11'})          # Progman es NOREDIRECTIONBITMAP: solo se compone contenido GPU, no GDI/software
     hwnd = find_by_title(TITLE)
     if not hwnd:
-        proc.kill(); sys.exit('el reproductor no abrió ventana')
+        proc.kill(); log.error('ffplay no abrió ventana'); sys.exit('el reproductor no abrió ventana')
     embed(hwnd, find_workerw())
     reveal(hwnd, 0.4)
+    log.info('vídeo en el escritorio: %s', path)
     write_state(daemon=os.getpid(), player=proc.pid, file=os.path.abspath(path))   # a partir de aquí el demonio anterior se retira
     paused = False
 

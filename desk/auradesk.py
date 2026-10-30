@@ -17,6 +17,13 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 CFG_DIR = os.path.join(os.environ.get('LOCALAPPDATA', os.path.expanduser('~')), 'AuraDesk')
 CFG = os.path.join(CFG_DIR, 'config.json')
+try:                                                                        # registro compartido (aura_log.py en la raíz del proyecto)
+    sys.path.insert(0, ROOT)
+    import aura_log
+    log = aura_log.get('desk')
+except Exception:                                                           # sin el módulo (copia suelta) la app sigue funcionando
+    import logging
+    log = logging.getLogger('aura.desk')
 S = max(1.0, u32.GetDpiForSystem() / 96.0)                      # escala de pantalla (200% aquí)
 
 # Colores con un solo significado cada uno (color.md): ACCENT = dato/acción principal; WARN y BAD = estado, siempre con texto
@@ -122,7 +129,9 @@ def load_cfg():
 
 def save_cfg(cfg):
     os.makedirs(CFG_DIR, exist_ok=True)
-    with open(CFG, 'w') as f: json.dump(cfg, f)
+    tmp = CFG + '.tmp'                                                      # atómico: un corte no deja posiciones corruptas
+    with open(tmp, 'w') as f: json.dump(cfg, f)
+    os.replace(tmp, CFG)
 
 
 def enabled_widgets():
@@ -366,6 +375,7 @@ REGISTRY = (('claude', ClaudeButton), ('clock', Clock), ('system', SystemW), ('c
 
 def main():
     cfg, on = load_cfg(), enabled_widgets()
+    log.info('widgets: arrancan %s', [n for n, _ in REGISTRY if on.get(n, True)])
     root = tk.Tk(); root.withdraw()
     widgets = [cls(root, cfg) for name, cls in REGISTRY if on.get(name, True)]
 

@@ -8,6 +8,8 @@ import ctypes, os, subprocess, threading, tkinter as tk
 from tkinter import colorchooser, filedialog
 
 import aura
+import aura_log
+log = aura_log.get('ui')
 
 ctypes.windll.user32.SetProcessDPIAware()
 SC = max(1.0, ctypes.windll.user32.GetDpiForSystem() / 96.0)
@@ -175,7 +177,8 @@ class Panel(tk.Tk):
         self.busy = True; self.msg.set('Aplicando…')
         def job():
             try: fn(); res = ok
-            except Exception as e: res = f'No se pudo completar: {e}'
+            except (Exception, SystemExit) as e:                                   # SystemExit: un sys.exit dentro del hilo lo mataría en silencio
+                log.exception('acción del panel fallida'); res = f'No se pudo completar: {e}'
             self.after(0, lambda: (setattr(self, 'busy', False), self.msg.set(res), self.update_state()))
         threading.Thread(target=job, daemon=True).start()
 
@@ -366,5 +369,21 @@ class Panel(tk.Tk):
         self.toggle_all.config(text='Detener todo' if d or w else 'Iniciar todo'); self.refresh_selection()
 
 
+def single_instance():
+    """Un solo panel: si ya hay uno abierto se le da el foco y este proceso termina."""
+    k32 = ctypes.windll.kernel32
+    k32.CreateMutexW(None, False, 'Local\\AuraSettingsPanel')
+    if k32.GetLastError() == 183:                                           # ERROR_ALREADY_EXISTS
+        u = ctypes.windll.user32; found = []
+        cb = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p)(
+            lambda h, _: (found.append(h) if (lambda b: (u.GetWindowTextW(h, b, 256), b.value)[1])(ctypes.create_unicode_buffer(256)).startswith('Aura') else None) or True)
+        u.EnumWindows(cb, 0)
+        if found: u.ShowWindow(found[0], 9); u.SetForegroundWindow(found[0])
+        return False
+    return True
+
+
 if __name__ == '__main__':
-    Panel().mainloop()
+    if single_instance():
+        log.info('panel abierto')
+        Panel().mainloop()

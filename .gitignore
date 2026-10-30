@@ -3,3 +3,4 @@ __pycache__/
 .godot/
 aura.json
 wall/media/custom.mp4
+dist/

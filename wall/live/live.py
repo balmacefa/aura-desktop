@@ -7,12 +7,21 @@ con GetCursorPos y la página lo consulta (como hace Lively). Solo cuentan los c
 Uso:  python live.py run <escena> [paleta]   en primer plano      python live.py start <escena> [paleta]   en segundo plano
       python live.py stop | scenes | serve [puerto]   (serve: abre http://127.0.0.1:8765/scenes/<escena>.html en cualquier navegador)
 """
-import ctypes, ctypes.wintypes as wt, json, os, shutil, subprocess, sys, tempfile, threading, time
+import ctypes, ctypes.wintypes as wt, json, os, re, shutil, subprocess, sys, tempfile, threading, time
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import urlsplit
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 import aurawall as a
+try:                                                                        # registro compartido (aura_log.py en la raíz del proyecto)
+    sys.path.insert(0, os.path.dirname(os.path.dirname(HERE)))
+    import aura_log
+    log = aura_log.get('live')
+except Exception:                                                           # sin el módulo (copia suelta) la app sigue funcionando
+    import logging
+    log = logging.getLogger('aura.live')
+
 
 u, k32 = a.u32, a.k32
 EDGE = next((p for p in (r'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe', r'C:\Program Files\Microsoft\Edge\Application\msedge.exe') if os.path.exists(p)), None)
@@ -77,6 +86,10 @@ def state():
             'bat': a.battery_pct(), 'hour': lt.tm_hour + lt.tm_min / 60}
 
 
+ALLOWED_HOSTS = ('127.0.0.1', 'localhost')                                 # anti DNS-rebinding: una web externa no puede leer el cursor
+CSP = "default-src 'self' 'unsafe-inline' blob: data:; connect-src 'self'; img-src 'self' data: blob:"   # las escenas no pueden hablar con internet
+
+
 class Handler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kw): super().__init__(*args, directory=HERE, **kw)
 
@@ -84,10 +97,28 @@ class Handler(SimpleHTTPRequestHandler):
 
     def end_headers(self):
         self.send_header('Cache-Control', 'no-store')                       # las escenas se editan a menudo
+        self.send_header('X-Content-Type-Options', 'nosniff'); self.send_header('Referrer-Policy', 'no-referrer')
+        self.send_header('Content-Security-Policy', CSP)
         super().end_headers()
 
+    def _host_ok(self):
+        host = (self.headers.get('Host') or '').rsplit(':', 1)[0]
+        if host not in ALLOWED_HOSTS:
+            self.send_error(403, 'host no permitido'); return False
+        return True
+
+    def send_head(self):                                                    # solo se sirven /scenes y /lib: nunca el código del motor
+        path = urlsplit(self.path).path
+        if not path.startswith(('/scenes/', '/lib/')) or '..' in path:
+            self.send_error(404); return None
+        return super().send_head()
+
+    def do_HEAD(self):
+        if self._host_ok(): super().do_HEAD()
+
     def do_GET(self):
-        if self.path.startswith('/state'):
+        if not self._host_ok(): return
+        if urlsplit(self.path).path == '/state':
             body = json.dumps(state()).encode()
             self.send_response(200); self.send_header('Content-Type', 'application/json'); self.send_header('Content-Length', str(len(body)))
             self.end_headers(); self.wfile.write(body)
@@ -106,7 +137,8 @@ def launch(scene, palette):
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     w, h = a.screen_size()
     if scene.startswith('godot-'):                                          # escena 3D de Godot: mismo puente /state
-        exe = find_godot() or sys.exit('Godot no encontrado en el PATH')
+        exe = find_godot()
+        if not exe: log.error('Godot no encontrado en el PATH'); sys.exit('Godot no encontrado en el PATH')
         state_url = f'http://127.0.0.1:{srv.server_address[1]}/state'
         args = [exe, '--path', os.path.join(GODOT_DIR, scene[6:]), '--rendering-method', 'mobile', '--rendering-driver', os.environ.get('AURA_GODOT_DRIVER', 'd3d12'), '--windowed', '--resolution', f'{w}x{h}', '--position', '-32000,0',
                 '--', f'--state={state_url}'] + ([f'--pal={palette}'] if palette else [])
@@ -138,14 +170,17 @@ def find_app_window(pid, timeout=20):
 
 
 def run(scene, palette='', pause_on_battery=True):
-    if not EDGE and not scene.startswith('godot-'): sys.exit('Microsoft Edge no encontrado')
-    if scene not in scenes(): sys.exit(f'escena desconocida: {scene}. Disponibles: {", ".join(scenes())}')
+    if not EDGE and not scene.startswith('godot-'): log.error('Microsoft Edge no encontrado'); sys.exit('Microsoft Edge no encontrado')
+    if scene not in scenes(): log.error('escena desconocida: %s', scene); sys.exit(f'escena desconocida: {scene}. Disponibles: {", ".join(scenes())}')
+    if palette and not all(re.fullmatch(r'[0-9a-fA-F]{6}', x) for x in palette.split(',')): log.error('paleta no válida: %r', palette); sys.exit('paleta no válida')
+    log.info('arranca la escena %s', scene)
     srv, proc = launch(scene, palette)
     hwnd = find_app_window(proc.pid)
-    if not hwnd: proc.kill(); sys.exit('Edge no abrió la ventana')
+    if not hwnd: proc.kill(); log.error('no apareció la ventana de %s', scene); sys.exit('la escena no abrió ventana')
     a.embed(hwnd, a.find_workerw())
     a.reveal(hwnd, 1.6 if scene.startswith('godot-') else 1.0)              # deja que la escena dibuje su primer fotograma y la funde
     a.write_state(daemon=os.getpid(), player=proc.pid, file='live:' + scene)  # a partir de aquí el demonio anterior se retira
+    log.info('escena %s visible', scene)
     paused = False
     try:
         while not a.handed_over(os.getpid()):
@@ -154,6 +189,7 @@ def run(scene, palette='', pause_on_battery=True):
                 u.ShowWindow(hwnd, 0 if want else 5); paused = want
             time.sleep(0.5)
     finally:
+        log.info('escena %s: demonio termina', scene)
         proc.kill(); srv.shutdown(); shutil.rmtree(PROFILE, ignore_errors=True)
         if not a.handed_over(os.getpid()):
             a.write_state(); u.SystemParametersInfoW(0x0014, 0, None, 3)
