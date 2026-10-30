@@ -93,14 +93,14 @@ def gen(seconds=None, out=None):
 def apply_video(path):
     """Guarda el vídeo elegido en aura.json y reinicia el fondo."""
     c = load_conf(); c['video'] = os.path.relpath(path, ROOT).replace(os.sep, '/'); c['mode'] = 'video'; save_conf(c)
-    wall('stop'); subprocess.run([PY, WALL, 'start', path])
+    subprocess.run([PY, WALL, 'start', path])                              # sin parar antes: el nuevo aparece con fundido y relevo al anterior
 
 
 def apply_scene(name):
     """Fondo interactivo: guarda la escena en aura.json y reinicia."""
     if name not in scenes(): sys.exit(f'escena desconocida: {name}. Disponibles: {", ".join(scenes())}')
     c = load_conf(); c['mode'], c['scene'] = 'live', name; save_conf(c)
-    wall('stop'); wall('start'); print('escena aplicada:', name)
+    wall('start'); print('escena aplicada:', name)
     print('fondo aplicado:', c['video'])
 
 

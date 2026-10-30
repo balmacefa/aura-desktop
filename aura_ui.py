@@ -37,13 +37,26 @@ def system_theme():
 T = system_theme()
 
 PRESETS = {'Aura': ['0e0e18', 'd97757', '1d1b3a', '3a1b2a'], 'Océano': ['06141a', '1fb5a3', '0b2a3a', '143d2e'],
-           'Aurora': ['0b1020', '7c5cff', '12304a', '1fbf8f'], 'Atardecer': ['1a0f1f', 'ff8a5c', '3a1b4a', 'c2416c'],
+           'Boreal': ['0b1020', '7c5cff', '12304a', '1fbf8f'], 'Atardecer': ['1a0f1f', 'ff8a5c', '3a1b4a', 'c2416c'],
            'Grafito': ['111114', '6b6f7a', '1c1c22', '2e3038']}
 WIDGETS = (('claude', 'Claude Code', 'Botón para abrir el chat'), ('clock', 'Reloj', 'Hora y fecha'),
            ('system', 'Sistema', 'CPU, memoria y disco'), ('calendar', 'Calendario', 'El mes actual con el día resaltado'),
            ('battery', 'Batería', 'Nivel, estado y tiempo restante'), ('pomodoro', 'Pomodoro', 'Foco de 25 min y pausa de 5'),
            ('network', 'Red', 'Velocidad de bajada y subida'))
-PANES = ('Resumen', 'Fondo', 'Widgets', 'General')
+PANES = ('Resumen', 'Fondo', 'Colores', 'Widgets', 'General')
+SCENES = {'estela': ('Estela', 'Una estela de luz sigue al cursor'), 'constelacion': ('Constelación', 'Nodos unidos por líneas que el cursor atrae'),
+          'orbes': ('Orbes', 'Esferas de luz que se funden con el cursor'), 'aurora': ('Aurora boreal', 'Cortinas de luz que se inclinan hacia el cursor'),
+          'malla': ('Malla de olas', 'Olas en perspectiva que el cursor agita'), 'godot-cristal': ('Cristales 3D', 'Hecho con Godot: los cristales huyen del cursor')}
+VIDEOS = {'aura_flow': ('Degradado Aura', 'Sin interacción'), 'cristal': ('Cristal', 'Render de Blender'), 'custom': ('Degradado propio', 'Con tus colores')}
+
+
+def current_background():
+    """(tipo, clave, nombre legible) del fondo configurado en aura.json."""
+    c = aura.load_conf()
+    if c.get('mode') == 'live':
+        return 'scene', c['scene'], SCENES.get(c['scene'], (c['scene'].capitalize(),))[0]
+    key = os.path.splitext(os.path.basename(c['video']))[0]
+    return 'video', key, VIDEOS.get(key, (key.replace('_', ' ').capitalize(),))[0]
 
 
 def hex2rgb(h): h = h.lstrip('#'); return tuple(int(h[i:i + 2], 16) for i in (0, 2, 4))
@@ -69,6 +82,27 @@ class Switch(tk.Canvas):
 
     def toggle(self, _=None):
         self.value = not self.value; self.draw(); self.command(self.value)
+
+
+class Card(tk.Frame):
+    """Opción seleccionable con título y descripción. Estado «En uso» en texto (no solo color), foco de teclado y hover."""
+    def __init__(self, parent, title, desc, command, wrap=215):
+        super().__init__(parent, bg=T['card'], highlightthickness=2, highlightbackground=T['card'], highlightcolor=T['text'], takefocus=1, cursor='hand2')
+        self.command, self.active, self.title = command, False, title
+        self.t = tk.Label(self, text=title, bg=T['card'], fg=T['text'], font=(UI_B, 11), anchor='w')
+        self.d = tk.Label(self, text=desc, bg=T['card'], fg=T['text2'], font=(UI, 10), anchor='w', wraplength=P(wrap), justify='left')
+        self.t.pack(fill='x', padx=P(10), pady=(P(8), 0)); self.d.pack(fill='x', padx=P(10), pady=(0, P(8)))
+        for w in (self, self.t, self.d):
+            w.bind('<Button-1>', lambda e: self.command()); w.bind('<Enter>', lambda e: self.tint(T['hover'])); w.bind('<Leave>', lambda e: self.tint(T['card']))
+        self.bind('<Return>', lambda e: self.command()); self.bind('<space>', lambda e: self.command())
+
+    def tint(self, c):
+        for w in (self, self.t, self.d): w.config(bg=c)
+
+    def set_active(self, on):
+        self.active = on
+        self.config(highlightbackground=T['accent'] if on else T['card'])
+        self.t.config(text=('✓ ' if on else '') + self.title, fg=T['accent'] if on else T['text'])
 
 
 class Slider(tk.Canvas):
@@ -108,7 +142,7 @@ class Panel(tk.Tk):
             b = self.button(bar, n, lambda n=n: self.show(n), 'tab'); b.pack(side='left', padx=(0, P(4))); self.tabs[n] = b
         tk.Frame(self, bg=T['sep'], height=1).pack(fill='x', pady=(P(6), 0))
 
-        self.body = tk.Frame(self, bg=T['bg'], width=P(520), height=P(640)); self.body.pack(padx=P(18), pady=P(14))
+        self.body = tk.Frame(self, bg=T['bg'], width=P(520), height=P(560)); self.body.pack(padx=P(18), pady=P(14))
         self.body.pack_propagate(False)
         tk.Label(self, textvariable=self.msg, bg=T['bg'], fg=T['text2'], font=(UI, 10), anchor='w').pack(fill='x', padx=P(18), pady=(0, P(12)))
         for n in PANES: self.panes[n] = getattr(self, 'build_' + n.lower())(tk.Frame(self.body, bg=T['bg']))
@@ -122,7 +156,10 @@ class Panel(tk.Tk):
                 'secondary': dict(bg=T['card'], fg=T['text'], activebackground=T['hover'], activeforeground=T['text'], highlightbackground=T['card']),
                 'plain': dict(bg=T['bg'], fg=T['accent'], activebackground=T['bg'], activeforeground=T['accent'], highlightbackground=T['bg']),
                 'tab': dict(bg=T['bg'], fg=T['text2'], activebackground=T['bg'], activeforeground=T['text'], highlightbackground=T['bg'])}[kind]
-        return tk.Button(parent, **base, **look, highlightcolor=T['text'])
+        b = tk.Button(parent, **base, **look, highlightcolor=T['text'])
+        if kind in ('secondary', 'tab'):                                     # estado al pasar el cursor (pointing-devices.md)
+            rest = look['bg']; b.bind('<Enter>', lambda e: b.config(bg=T['hover'])); b.bind('<Leave>', lambda e: b.config(bg=rest))
+        return b
 
     def card(self, parent, **kw):
         return tk.Frame(parent, bg=T['card'], padx=P(14), pady=P(12), **kw)
@@ -131,12 +168,15 @@ class Panel(tk.Tk):
         tk.Label(parent, text=text, bg=T['bg'], fg=T['text'], font=(UI_B, 15), anchor='w').pack(fill='x')
         if sub: tk.Label(parent, text=sub, bg=T['bg'], fg=T['text2'], font=(UI, 10), anchor='w', wraplength=P(500), justify='left').pack(fill='x', pady=(P(2), P(10)))
 
+    busy = False
+
     def run(self, fn, ok='Listo'):
-        self.msg.set('Trabajando…')
+        if self.busy: self.msg.set('Espera a que termine la acción anterior…'); return       # evita transiciones superpuestas
+        self.busy = True; self.msg.set('Aplicando…')
         def job():
             try: fn(); res = ok
             except Exception as e: res = f'No se pudo completar: {e}'
-            self.after(0, lambda: (self.msg.set(res), self.update_state()))
+            self.after(0, lambda: (setattr(self, 'busy', False), self.msg.set(res), self.update_state()))
         threading.Thread(target=job, daemon=True).start()
 
     def show(self, name):
@@ -169,42 +209,64 @@ class Panel(tk.Tk):
 
     # ---------- Fondo ----------
     def build_fondo(self, f):
-        self.heading(f, 'Fondo', 'Degradado animado propio o un vídeo/GIF tuyo. Se ve detrás de los iconos.')
+        self.heading(f, 'Fondo', 'Elige qué se ve detrás de los iconos. Se aplica al momento con un fundido.')
+        self.cards = {}
+
+        def grid(title, items, kind, cols=2):
+            tk.Label(f, text=title, bg=T['bg'], fg=T['text'], font=(UI_B, 11), anchor='w').pack(fill='x', pady=(P(6), P(4)))
+            g = tk.Frame(f, bg=T['bg']); g.pack(fill='x')
+            for n, (key, (name, desc)) in enumerate(items):
+                cmd = (lambda k=key, nm=name: self.run(lambda: aura.apply_scene(k), f'{nm} aplicado')) if kind == 'scene' else \
+                      (lambda k=key, nm=name: self.run(lambda: aura.apply_video(os.path.join(aura.MEDIA, k + '.mp4')), f'{nm} aplicado'))
+                c = Card(g, name, desc, cmd, wrap=215 if cols == 2 else 140); c.grid(row=n // cols, column=n % cols, padx=(0, P(8)), pady=(0, P(8)), sticky='nsew')
+                g.columnconfigure(n % cols, weight=1, uniform='c'); self.cards[(kind, key)] = c
+
+        scenes = [(k, SCENES.get(k, (k.capitalize(), ''))) for k in aura.scenes()]
+        grid('Interactivos', scenes, 'scene')
+        tk.Label(f, text='Reaccionan al ratón, a los clics y al uso de CPU.', bg=T['bg'], fg=T['text2'], font=(UI, 10)).pack(anchor='w', pady=(0, P(4)))
+        vids = [(os.path.splitext(v)[0], VIDEOS.get(os.path.splitext(v)[0], (os.path.splitext(v)[0].replace('_', ' ').capitalize(), 'Vídeo')))
+                for v in sorted(os.listdir(aura.MEDIA)) if v.endswith(('.mp4', '.webm', '.gif'))]
+        grid('Vídeo', vids, 'video', cols=3)
+        self.button(f, 'Elegir vídeo o GIF…', self.choose_file, 'secondary').pack(anchor='w', pady=(P(2), 0))
+        return f
+
+    def refresh_selection(self):
+        kind, key, _ = current_background()
+        for (k, name), card in getattr(self, 'cards', {}).items(): card.set_active(k == kind and name == key)
+
+    # ---------- Colores ----------
+    def build_colores(self, f):
+        self.heading(f, 'Colores', 'Paleta del degradado y de los fondos interactivos (fondo, acento y dos tonos secundarios).')
         self.pal = list(self.conf['palette'])
         self.prev = tk.Canvas(f, width=P(260), height=P(173), bg=T['card'], highlightthickness=0); self.prev.pack(anchor='w')
         self.img = tk.PhotoImage(width=52, height=35)
-        tk.Label(f, text='Vista previa aproximada', bg=T['bg'], fg=T['text2'], font=(UI, 10)).pack(anchor='w', pady=(P(2), P(8)))
+        tk.Label(f, text='Vista previa aproximada del degradado', bg=T['bg'], fg=T['text2'], font=(UI, 10)).pack(anchor='w', pady=(P(2), P(8)))
+        tk.Label(f, text='Paletas', bg=T['bg'], fg=T['text'], font=(UI_B, 11)).pack(anchor='w', pady=(0, P(4)))
         row = tk.Frame(f, bg=T['bg']); row.pack(anchor='w')
         for name, p in PRESETS.items():                                   # elegir antes que escribir (entering-data.md)
             b = self.button(row, name, lambda p=p: self.set_palette(p), 'secondary'); b.config(padx=P(9), pady=P(5), font=(UI, 10)); b.pack(side='left', padx=(0, P(5)))
-        wells = tk.Frame(f, bg=T['bg']); wells.pack(anchor='w', pady=(P(10), 0))
+        tk.Label(f, text='Colores (pulsa uno para cambiarlo)', bg=T['bg'], fg=T['text'], font=(UI_B, 11)).pack(anchor='w', pady=(P(12), P(4)))
+        wells = tk.Frame(f, bg=T['bg']); wells.pack(anchor='w')
         self.wells = []
         for i in range(4):
             w = tk.Canvas(wells, width=P(56), height=P(34), highlightthickness=2, highlightbackground=T['sep'], highlightcolor=T['text'],
                           takefocus=1, cursor='hand2'); w.pack(side='left', padx=(0, P(8)))
             w.bind('<Button-1>', lambda e, i=i: self.pick(i)); w.bind('<space>', lambda e, i=i: self.pick(i)); self.wells.append(w)
-        sp = tk.Frame(f, bg=T['bg']); sp.pack(anchor='w', pady=(P(10), 0))
-        tk.Label(sp, text='Velocidad', bg=T['bg'], fg=T['text'], font=(UI, 11)).pack(side='left')
+        sp = tk.Frame(f, bg=T['bg']); sp.pack(anchor='w', pady=(P(12), 0))
+        tk.Label(sp, text='Velocidad del degradado', bg=T['bg'], fg=T['text'], font=(UI, 11)).pack(side='left')
         self.speed = tk.DoubleVar(value=self.conf['speed'])
-        Slider(sp, self.speed, 0.003, 0.05).pack(side='left', padx=P(10))
-        tk.Label(sp, text='lenta ← → rápida', bg=T['bg'], fg=T['text2'], font=(UI, 10)).pack(side='left')
-        tk.Label(f, text='Fondos interactivos (reaccionan al ratón, a los clics y al uso de CPU)', bg=T['bg'], fg=T['text2'], font=(UI, 10)).pack(anchor='w', pady=(P(14), P(4)))
-        live = tk.Frame(f, bg=T['bg']); live.pack(anchor='w')
-        for name in aura.scenes():
-            b = self.button(live, name.capitalize(), lambda n=name: self.run(lambda: aura.apply_scene(n), f'Escena {n} aplicada'), 'secondary')
-            b.config(padx=P(9), pady=P(5), font=(UI, 10)); b.pack(side='left', padx=(0, P(5)), pady=(0, P(5)))
-        vids = [v for v in sorted(os.listdir(aura.MEDIA)) if v.endswith(('.mp4', '.webm', '.gif')) and v != 'custom.mp4']
-        tk.Label(f, text='Fondos en vídeo (renders de Blender y otros)', bg=T['bg'], fg=T['text2'], font=(UI, 10)).pack(anchor='w', pady=(P(8), P(4)))
-        vrow = tk.Frame(f, bg=T['bg']); vrow.pack(anchor='w')
-        for v in vids:
-            b = self.button(vrow, os.path.splitext(v)[0].replace('_', ' ').capitalize(), lambda v=v: self.run(lambda: aura.apply_video(os.path.join(aura.MEDIA, v)), 'Fondo aplicado'), 'secondary')
-            b.config(padx=P(9), pady=P(5), font=(UI, 10)); b.pack(side='left', padx=(0, P(5)))
-        act = tk.Frame(f, bg=T['bg']); act.pack(anchor='w', pady=(P(12), 0))
-        self.button(act, 'Aplicar fondo', lambda: self.run(self.generate, 'Fondo aplicado'), 'primary').pack(side='left', padx=(0, P(8)))
-        self.button(act, 'Elegir vídeo o GIF…', self.choose_file, 'secondary').pack(side='left', padx=(0, P(8)))
-        self.button(act, 'Restaurar original', lambda: self.run(lambda: aura.apply_video(os.path.join(aura.MEDIA, 'aura_flow.mp4')), 'Fondo original'), 'plain').pack(side='left')
+        tk.Label(sp, text='Lenta', bg=T['bg'], fg=T['text2'], font=(UI, 10)).pack(side='left', padx=(P(10), 0))
+        Slider(sp, self.speed, 0.003, 0.05, 150).pack(side='left', padx=P(4))
+        tk.Label(sp, text='Rápida', bg=T['bg'], fg=T['text2'], font=(UI, 10)).pack(side='left')
+        self.button(f, 'Aplicar colores', lambda: self.run(self.apply_colors, 'Colores aplicados'), 'primary').pack(anchor='w', pady=(P(14), 0))
         self.set_palette(self.pal, save=False)
         return f
+
+    def apply_colors(self):
+        """Fondo interactivo: reinicia la escena con la paleta. Vídeo: genera el degradado con esos colores."""
+        self.conf['palette'], self.conf['speed'] = self.pal, round(self.speed.get(), 4); aura.save_conf(self.conf)
+        if aura.load_conf().get('mode') == 'live': aura.apply_scene(aura.load_conf()['scene'])
+        else: self.generate()
 
     def set_palette(self, p, save=True):
         self.pal = [c.lstrip('#') for c in p]
@@ -223,7 +285,6 @@ class Panel(tk.Tk):
         if c: p = list(self.pal); p[i] = c.lstrip('#'); self.set_palette(p)
 
     def generate(self):
-        self.conf['palette'], self.conf['speed'] = self.pal, round(self.speed.get(), 4); aura.save_conf(self.conf)
         dst = os.path.join(aura.MEDIA, 'custom.mp4'); aura.gen(out=dst); aura.apply_video(dst)
 
     def choose_file(self):
@@ -298,11 +359,11 @@ class Panel(tk.Tk):
         self._state = (d, w)
         n = sum(1 for k, _, _ in WIDGETS if self.conf.get('widgets', {}).get(k, True))
         for key, on, sub in (('desk', d, f'{n} widgets en el escritorio' if d else 'Detenidos'),
-                             ('wall', w, os.path.basename(aura.load_conf()['video']) if w else 'Detenido')):
+                             ('wall', w, current_background()[2] if w else 'Detenido')):
             dot, lab = self.status[key]
             dot.itemconfig('d', fill=T['ok'] if on else T['off'])
             lab.config(text=('Activo · ' if on else '') + sub if on else sub)              # estado en texto, no solo en color
-        self.toggle_all.config(text='Detener todo' if d or w else 'Iniciar todo')
+        self.toggle_all.config(text='Detener todo' if d or w else 'Iniciar todo'); self.refresh_selection()
 
 
 if __name__ == '__main__':

@@ -74,3 +74,10 @@ Progman no entrega el ratón a un fondo, así que un servidor local (127.0.0.1, 
 - Lecciones: título de ventana de Edge InPrivate = "AuraLive - [InPrivate]" (buscar por prefijo); `--start-fullscreen` quita el marco; sin `--inprivate --disable-sync` Edge sincroniza la cuenta y abre pestañas de extensiones.
 - Desarrollo: `python wall/live/live.py serve 8791` y abrir `http://127.0.0.1:8791/scenes/<escena>.html` en cualquier navegador.
 - Uso: `python aura.py scene <nombre>` / `python aura.py scenes` / panel Aura > Fondo.
+
+## Transiciones suaves y revisión UX (2026-10-30)
+- **Relevo sin parar el fondo anterior**: el nuevo demonio arranca con la ventana transparente, la deja asentarse y la funde (0,9 s, curva suave) por encima; solo entonces escribe su PID en el estado y el anterior se retira solo (`handed_over`). Nunca se ve el fondo de Windows entre dos fondos.
+- Chrome y Godot reinician el estilo de su ventana al arrancar: por eso `reveal()` reafirma transparencia 0 cada 15 ms mientras carga y SUMA bits al estilo (no pisa `NOREDIRECTIONBITMAP`). La ventana se localiza por PID y tamaño (Edge pone el título tras cargar la página). Godot nace fuera de pantalla.
+- Cada demonio usa su propio perfil temporal de Edge (`AuraLive-profile-<pid>`); `stop` los borra. Se respeta el ajuste de Windows «Mostrar animaciones» (sin fundido si está desactivado).
+- Medición: `wall/transition_probe.py` registra un píxel cada 100 ms durante un cambio; la serie debe ser una rampa sin picos ni valores del fondo de Windows.
+- **Panel (skill apple-design)**: 5 paneles (Resumen, Fondo, Colores, Widgets, General); tarjetas con «✓ En uso» (estado en texto, no solo color), nombres legibles, hover, foco visible, protección anti-doble clic durante una transición, «Aplicar colores» reinicia la escena con la paleta. Atajos Ctrl+1…5, Esc.

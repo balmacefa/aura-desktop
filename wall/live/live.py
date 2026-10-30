@@ -16,7 +16,7 @@ import aurawall as a
 
 u, k32 = a.u32, a.k32
 EDGE = next((p for p in (r'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe', r'C:\Program Files\Microsoft\Edge\Application\msedge.exe') if os.path.exists(p)), None)
-PROFILE = os.path.join(tempfile.gettempdir(), 'AuraLive-profile')
+PROFILE = os.path.join(tempfile.gettempdir(), f'AuraLive-profile-{os.getpid()}')   # uno por demonio: dos Edge con el mismo perfil se fusionarían
 SCENES = os.path.join(HERE, 'scenes')
 u.GetAncestor.restype = wt.HWND
 u.WindowFromPoint.restype = wt.HWND
@@ -95,6 +95,12 @@ class Handler(SimpleHTTPRequestHandler):
             super().do_GET()
 
 
+def hidden():
+    """STARTUPINFO con SW_HIDE: la ventana nace oculta y no parpadea antes de pegarse al escritorio."""
+    si = subprocess.STARTUPINFO(); si.dwFlags |= subprocess.STARTF_USESHOWWINDOW; si.wShowWindow = 0
+    return si
+
+
 def launch(scene, palette):
     srv = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
@@ -102,39 +108,55 @@ def launch(scene, palette):
     if scene.startswith('godot-'):                                          # escena 3D de Godot: mismo puente /state
         exe = find_godot() or sys.exit('Godot no encontrado en el PATH')
         state_url = f'http://127.0.0.1:{srv.server_address[1]}/state'
-        args = [exe, '--path', os.path.join(GODOT_DIR, scene[6:]), '--rendering-method', 'mobile', '--rendering-driver', os.environ.get('AURA_GODOT_DRIVER', 'd3d12'), '--windowed', '--resolution', f'{w}x{h}', '--position', '0,0',
+        args = [exe, '--path', os.path.join(GODOT_DIR, scene[6:]), '--rendering-method', 'mobile', '--rendering-driver', os.environ.get('AURA_GODOT_DRIVER', 'd3d12'), '--windowed', '--resolution', f'{w}x{h}', '--position', '-32000,0',
                 '--', f'--state={state_url}'] + ([f'--pal={palette}'] if palette else [])
-        return srv, subprocess.Popen(args, creationflags=0x08000000)
+        return srv, subprocess.Popen(args, creationflags=0x08000000, startupinfo=hidden())
     url = f'http://127.0.0.1:{srv.server_address[1]}/scenes/{scene}.html' + (f'?p={palette}' if palette else '')
     flags = ['--app=' + url, '--user-data-dir=' + PROFILE, '--inprivate', '--disable-sync', '--disable-extensions', '--no-first-run',
              '--no-default-browser-check', '--no-service-autorun', '--disable-component-update', f'--window-size={w},{h}', '--window-position=0,0',
              '--disable-features=CalculateNativeWinOcclusion', '--disable-background-timer-throttling', '--disable-renderer-backgrounding',
              '--disable-backgrounding-occluded-windows', '--autoplay-policy=no-user-gesture-required', '--start-fullscreen', '--hide-scrollbars', '--disable-infobars']
-    return srv, subprocess.Popen([EDGE] + flags, creationflags=0x08000000)
+    return srv, subprocess.Popen([EDGE] + flags, creationflags=0x08000000, startupinfo=hidden())
+
+
+def find_app_window(pid, timeout=20):
+    """Ventana principal del proceso lanzado, por PID y tamaño (no por título: Edge lo pone tras cargar la página y la ventana ya parpadearía)."""
+    end, owner = time.time() + timeout, wt.DWORD()
+    while time.time() < end:
+        found = []
+
+        def cb(h, _):
+            u.GetWindowThreadProcessId(h, ctypes.byref(owner))
+            if owner.value == pid and a._cls(h) in ('Chrome_WidgetWin_1', 'Engine', 'Window'):
+                r = wt.RECT(); u.GetWindowRect(h, ctypes.byref(r))
+                if r.right - r.left >= 400 and r.bottom - r.top >= 300: found.append(h)
+            return True
+        a.u32.EnumWindows(a.EnumProc(cb), 0)
+        if found: return found[0]
+        time.sleep(.01)
+    return None
 
 
 def run(scene, palette='', pause_on_battery=True):
     if not EDGE and not scene.startswith('godot-'): sys.exit('Microsoft Edge no encontrado')
     if scene not in scenes(): sys.exit(f'escena desconocida: {scene}. Disponibles: {", ".join(scenes())}')
     srv, proc = launch(scene, palette)
-    a.write_state(daemon=os.getpid(), player=proc.pid, file='live:' + scene)
-    hwnd = None
-    end = time.time() + 20
-    while time.time() < end and not hwnd:                                   # la ventana de la app se titula como la página
-        found = []
-        a.u32.EnumWindows(a.EnumProc(lambda h, _: (found.append(h) if a._title(h).startswith('AuraLive') and a._cls(h) in ('Chrome_WidgetWin_1', 'Engine', 'Window') else None) or True), 0)
-        hwnd = found[0] if found else None; time.sleep(.3)
+    hwnd = find_app_window(proc.pid)
     if not hwnd: proc.kill(); sys.exit('Edge no abrió la ventana')
     a.embed(hwnd, a.find_workerw())
+    a.reveal(hwnd, 1.6 if scene.startswith('godot-') else 1.0)              # deja que la escena dibuje su primer fotograma y la funde
+    a.write_state(daemon=os.getpid(), player=proc.pid, file='live:' + scene)  # a partir de aquí el demonio anterior se retira
     paused = False
     try:
-        while True:
+        while not a.handed_over(os.getpid()):
             want = a.covered_by_fullscreen() or (pause_on_battery and a.on_battery())
             if want != paused:
                 u.ShowWindow(hwnd, 0 if want else 5); paused = want
-            time.sleep(2)
+            time.sleep(0.5)
     finally:
-        proc.kill(); srv.shutdown(); a.write_state(); u.SystemParametersInfoW(0x0014, 0, None, 3)
+        proc.kill(); srv.shutdown(); shutil.rmtree(PROFILE, ignore_errors=True)
+        if not a.handed_over(os.getpid()):
+            a.write_state(); u.SystemParametersInfoW(0x0014, 0, None, 3)
 
 
 def stop():
@@ -142,6 +164,8 @@ def stop():
     subprocess.run(['powershell', '-NoProfile', '-Command',
                     "Get-CimInstance Win32_Process | Where-Object CommandLine -match 'AuraLive-profile' | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }"],
                    capture_output=True, creationflags=0x08000000)
+    for d in os.listdir(tempfile.gettempdir()):                                # perfiles temporales de Edge que hayan quedado
+        if d.startswith('AuraLive-profile'): shutil.rmtree(os.path.join(tempfile.gettempdir(), d), ignore_errors=True)
 
 
 if __name__ == '__main__':

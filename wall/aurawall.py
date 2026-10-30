@@ -66,7 +66,7 @@ def find_by_title(title, timeout=10):
         u32.EnumWindows(EnumProc(lambda h, _: (hit.append(h) if _title(h) == title else None) or True), 0)
         if hit:
             return hit[0]
-        time.sleep(0.2)
+        time.sleep(0.015)
     return None
 
 
@@ -84,12 +84,42 @@ def embed(player, workerw):
     # WorkerW, con exstyle LAYERED|TOOLWINDOW|NOACTIVATE.
     progman = u32.FindWindowW('Progman', None)
     defview = u32.FindWindowExW(progman, None, 'SHELLDLL_DefView', None)
+    u32.SetLayeredWindowAttributes.argtypes = [wt.HWND, wt.DWORD, ctypes.c_ubyte, wt.DWORD]
     u32.SetWindowLongW(player, -20, 0x00080000 | 0x80 | 0x08000000)    # LAYERED | TOOLWINDOW | NOACTIVATE (debe ir ANTES de SetParent: después Windows lo ignora)
+    u32.SetLayeredWindowAttributes(player, 0, 0, 2)                    # transparente hasta que fade_in() la muestre
     u32.SetParent(player, progman)
     u32.SetWindowLongW(player, GWL_STYLE, WS_CHILD | WS_VISIBLE | 0x04000000 | 0x02000000)   # + CLIPSIBLINGS | CLIPCHILDREN
-    u32.SetLayeredWindowAttributes.argtypes = [wt.HWND, wt.DWORD, ctypes.c_ubyte, wt.DWORD]
-    u32.SetLayeredWindowAttributes(player, 0, 255, 2)                                       # LWA_ALPHA opaco
     u32.SetWindowPos(player, defview, 0, 0, w, h, 0x0010 | 0x0040)                          # justo detrás de DefView
+
+
+def fade_in(hwnd, secs=0.9):
+    """Aparece con un fundido (curva suave) sobre lo que haya detrás: el fondo anterior o el de Windows."""
+    anim = ctypes.c_int(1)
+    if u32.SystemParametersInfoW(0x1042, 0, ctypes.byref(anim), 0) and not anim.value:   # SPI_GETCLIENTAREAANIMATION: animaciones desactivadas en Windows
+        secs = 0
+    n = max(1, int(secs * 60))
+    for i in range(1, n + 1):
+        t = i / n
+        u32.SetLayeredWindowAttributes(hwnd, 0, int(255 * t * t * (3 - 2 * t)), 2)
+        time.sleep(secs / n)
+    u32.SetLayeredWindowAttributes(hwnd, 0, 255, 2)
+
+
+def reveal(hwnd, settle=1.0, secs=0.9):
+    """Muestra la ventana ya cargada con un fundido. Mientras se asienta, reafirma la transparencia 0 cada 15 ms: Chrome y Godot reinician
+    el estilo de su ventana al arrancar y, sin esto, se verían un instante a opacidad total."""
+    end = time.time() + settle
+    while time.time() < end:
+        if not u32.SetLayeredWindowAttributes(hwnd, 0, 0, 2):           # perdió LAYERED: se vuelve a poner (sumando bits, no pisando los de Chrome)
+            u32.SetWindowLongW(hwnd, -20, (u32.GetWindowLongW(hwnd, -20) & 0xFFFFFFFF) | 0x00080000 | 0x80 | 0x08000000)
+        time.sleep(0.015)
+    fade_in(hwnd, secs)
+
+
+def handed_over(me):
+    """True si otro demonio (un fondo nuevo) ya tomó el relevo: este debe retirarse sin tocar el escritorio."""
+    d = read_state().get('daemon')
+    return bool(d) and d != me
 
 
 def covered_by_fullscreen():
@@ -153,15 +183,15 @@ def run(path, pause_on_battery=True):
         sys.exit('ffplay no encontrado (winget install Gyan.FFmpeg)')
     w, h = screen_size()
     proc = subprocess.Popen([ffplay, '-noborder', '-loop', '0', '-an', '-loglevel', 'quiet',
-                             '-x', str(w), '-y', str(h), '-left', '0', '-top', '0',
+                             '-x', str(w), '-y', str(h), '-left', '-32000', '-top', '0',   # nace fuera de pantalla; embed() la coloca en 0,0
                              '-window_title', TITLE, path], creationflags=0x08000000,       # sin consola
                             env={**os.environ, 'SDL_RENDER_DRIVER': 'direct3d11'})          # Progman es NOREDIRECTIONBITMAP: solo se compone contenido GPU, no GDI/software
-    write_state(daemon=os.getpid(), player=proc.pid, file=os.path.abspath(path))
     hwnd = find_by_title(TITLE)
     if not hwnd:
         proc.kill(); sys.exit('el reproductor no abrió ventana')
     embed(hwnd, find_workerw())
-    hwnd = u32.FindWindowExW(u32.GetParent(hwnd), None, 'SDL_app', TITLE) or hwnd
+    reveal(hwnd, 0.4)
+    write_state(daemon=os.getpid(), player=proc.pid, file=os.path.abspath(path))   # a partir de aquí el demonio anterior se retira
     paused = False
 
     def pause(on):
@@ -172,18 +202,18 @@ def run(path, pause_on_battery=True):
         else:
             set_suspended(proc.pid, False); u32.ShowWindow(hwnd, 5)
     try:
-        while proc.poll() is None:
+        while proc.poll() is None and not handed_over(os.getpid()):
             want = covered_by_fullscreen() or (pause_on_battery and on_battery())
             if want != paused:
                 pause(want); paused = want
-            time.sleep(2)
+            time.sleep(0.5)
     finally:
         if paused:
             set_suspended(proc.pid, False)
         proc.kill()
-        write_state()
-        # Fuerza a Windows a repintar el fondo normal
-        u32.SystemParametersInfoW(0x0014, 0, None, 3)
+        if not handed_over(os.getpid()):                                     # relevo: el nuevo ya está delante, no tocar nada
+            write_state()
+            u32.SystemParametersInfoW(0x0014, 0, None, 3)                    # fuerza a Windows a repintar el fondo normal
 
 
 def start(path, battery_ok=False):
