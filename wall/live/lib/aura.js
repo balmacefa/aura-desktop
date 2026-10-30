@@ -14,12 +14,14 @@
   const BENCH = q.get('bench') === '1', frames = []; let lastReport = performance.now();
   const cbs = []; let lastClicks = 0, lastT = performance.now(), px = .5, py = .5, fallbackClicks = 0;
 
-  async function poll() {
+  let inflight = false, retryAt = 0;
+  async function poll() {                                                     // una consulta por fotograma como máximo; sin temporizadores
+    if (inflight) return; inflight = true;
     try {
       const j = await (await fetch('/state', { cache: 'no-store' })).json();
       s.live = true; s.x = j.x; s.y = j.y; s.down = j.down; s.clicks = j.click; s.cpu = j.cpu; s.ram = j.ram; s.bat = j.bat; s.hour = j.hour;
-      setTimeout(poll, 8);
-    } catch (e) { s.live = false; setTimeout(poll, 1000); }
+    } catch (e) { s.live = false; retryAt = performance.now() + 1000; }
+    inflight = false;
   }
   poll();
   addEventListener('mousemove', e => { if (!s.live) { s.x = e.clientX / innerWidth; s.y = e.clientY / innerHeight; } });
@@ -28,6 +30,7 @@
   if (!s.live) s.hour = new Date().getHours() + new Date().getMinutes() / 60;
 
   function frame(now) {
+    if (!inflight && now >= retryAt) poll();
     s.dt = Math.min(.05, (now - lastT) / 1000); lastT = now; s.t += s.dt;
     s.w = Math.round(innerWidth * s.dpr); s.h = Math.round(innerHeight * s.dpr);
     const k = 1 - Math.exp(-s.dt * 12); s.sx += (s.x - s.sx) * k; s.sy += (s.y - s.sy) * k;

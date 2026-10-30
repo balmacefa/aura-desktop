@@ -73,6 +73,19 @@ def ram():
 clicks = [0]; _was_down = [False]
 
 
+_slow = [0.0, {}]
+
+
+def slow():
+    """Lo que no cambia a la velocidad del cursor (CPU, RAM, batería, hora) se calcula como mucho 2 veces por segundo."""
+    now = time.time()
+    if now - _slow[0] > 0.5:
+        lt = time.localtime()
+        _slow[1] = {'cpu': round(cpu(), 3), 'ram': ram(), 'bat': a.battery_pct(), 'hour': lt.tm_hour + lt.tm_min / 60}
+        _slow[0] = now
+    return _slow[1]
+
+
 def state():
     pt = wt.POINT(); u.GetCursorPos(ctypes.byref(pt))
     w, h = a.screen_size()
@@ -81,9 +94,7 @@ def state():
         top = u.GetAncestor(u.WindowFromPoint(pt), 2)                       # GA_ROOT
         if top and a._cls(top) in ('Progman', 'WorkerW'): clicks[0] += 1
     _was_down[0] = down
-    lt = time.localtime()
-    return {'x': pt.x / w, 'y': pt.y / h, 'down': down, 'click': clicks[0], 'cpu': round(cpu(), 3), 'ram': ram(),
-            'bat': a.battery_pct(), 'hour': lt.tm_hour + lt.tm_min / 60}
+    return {'x': pt.x / w, 'y': pt.y / h, 'down': down, 'click': clicks[0], **slow()}
 
 
 BENCH = os.environ.get('AURA_BENCH') == '1'                                # métricas de rendimiento solo en modo benchmark
@@ -93,6 +104,8 @@ CSP = "default-src 'self' 'unsafe-inline' blob: data:; connect-src 'self'; img-s
 
 
 class Handler(SimpleHTTPRequestHandler):
+    protocol_version = 'HTTP/1.1'                                           # conexiones persistentes: una sola conexión TCP por página
+
     def __init__(self, *args, **kw): super().__init__(*args, directory=HERE, **kw)
 
     def log_message(self, *args): pass
