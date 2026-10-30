@@ -86,6 +86,8 @@ def state():
             'bat': a.battery_pct(), 'hour': lt.tm_hour + lt.tm_min / 60}
 
 
+BENCH = os.environ.get('AURA_BENCH') == '1'                                # métricas de rendimiento solo en modo benchmark
+PERF, REQUESTS = [], [0]
 ALLOWED_HOSTS = ('127.0.0.1', 'localhost')                                 # anti DNS-rebinding: una web externa no puede leer el cursor
 CSP = "default-src 'self' 'unsafe-inline' blob: data:; connect-src 'self'; img-src 'self' data: blob:"   # las escenas no pueden hablar con internet
 
@@ -118,7 +120,15 @@ class Handler(SimpleHTTPRequestHandler):
 
     def do_GET(self):
         if not self._host_ok(): return
-        if urlsplit(self.path).path == '/state':
+        path = urlsplit(self.path)
+        if BENCH and path.path == '/perf':                                  # la página informa de sus fotogramas (aura.js con ?bench=1)
+            from urllib.parse import parse_qs
+            PERF.append({k: float(v[0]) for k, v in parse_qs(path.query).items()}); self.send_response(204); self.end_headers(); return
+        if BENCH and path.path == '/perfdump':
+            body = json.dumps({'perf': PERF[-6:], 'requests': REQUESTS[0]}).encode()
+            self.send_response(200); self.send_header('Content-Type', 'application/json'); self.send_header('Content-Length', str(len(body))); self.end_headers(); self.wfile.write(body); return
+        if path.path == '/state':
+            REQUESTS[0] += 1
             body = json.dumps(state()).encode()
             self.send_response(200); self.send_header('Content-Type', 'application/json'); self.send_header('Content-Length', str(len(body)))
             self.end_headers(); self.wfile.write(body)
@@ -143,7 +153,9 @@ def launch(scene, palette):
         args = [exe, '--path', os.path.join(GODOT_DIR, scene[6:]), '--rendering-method', 'mobile', '--rendering-driver', os.environ.get('AURA_GODOT_DRIVER', 'd3d12'), '--windowed', '--resolution', f'{w}x{h}', '--position', '-32000,0',
                 '--', f'--state={state_url}'] + ([f'--pal={palette}'] if palette else [])
         return srv, subprocess.Popen(args, creationflags=0x08000000, startupinfo=hidden())
-    url = f'http://127.0.0.1:{srv.server_address[1]}/scenes/{scene}.html' + (f'?p={palette}' if palette else '')
+    qs = [f'p={palette}'] if palette else []
+    if BENCH: qs.append('bench=1')
+    url = f'http://127.0.0.1:{srv.server_address[1]}/scenes/{scene}.html' + ('?' + '&'.join(qs) if qs else '')
     flags = ['--app=' + url, '--user-data-dir=' + PROFILE, '--inprivate', '--disable-sync', '--disable-extensions', '--no-first-run',
              '--no-default-browser-check', '--no-service-autorun', '--disable-component-update', f'--window-size={w},{h}', '--window-position=0,0',
              '--disable-features=CalculateNativeWinOcclusion', '--disable-background-timer-throttling', '--disable-renderer-backgrounding',
@@ -179,7 +191,7 @@ def run(scene, palette='', pause_on_battery=True):
     if not hwnd: proc.kill(); log.error('no apareció la ventana de %s', scene); sys.exit('la escena no abrió ventana')
     a.embed(hwnd, a.find_workerw())
     a.reveal(hwnd, 1.6 if scene.startswith('godot-') else 1.0)              # deja que la escena dibuje su primer fotograma y la funde
-    a.write_state(daemon=os.getpid(), player=proc.pid, file='live:' + scene)  # a partir de aquí el demonio anterior se retira
+    a.write_state(daemon=os.getpid(), player=proc.pid, file='live:' + scene, port=srv.server_address[1])  # a partir de aquí el demonio anterior se retira
     log.info('escena %s visible', scene)
     paused = False
     try:

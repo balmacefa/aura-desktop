@@ -11,6 +11,7 @@
   const rgb = i => { const h = pal[i]; return [1, 3, 5].map(k => parseInt(h.slice(k, k + 2), 16)); };
   const s = { x: .5, y: .5, sx: .5, sy: .5, vx: 0, vy: 0, down: false, clicked: false, cpu: .1, ram: .5, bat: 100, hour: 12, night: .5,
               t: 0, dt: .016, w: innerWidth, h: innerHeight, dpr: devicePixelRatio || 1, live: false, clicks: 0 };
+  const BENCH = q.get('bench') === '1', frames = []; let lastReport = performance.now();
   const cbs = []; let lastClicks = 0, lastT = performance.now(), px = .5, py = .5, fallbackClicks = 0;
 
   async function poll() {
@@ -34,6 +35,11 @@
     s.clicked = s.clicks !== lastClicks; lastClicks = s.clicks;
     s.night = .5 + .5 * Math.cos((s.hour - 13) / 24 * 2 * Math.PI);          // 0 al mediodía-tarde, 1 de madrugada
     for (const f of cbs) f(s.dt, s);
+    if (BENCH) {                                                              // métricas de rendimiento del benchmark: nunca en producción
+      frames.push(now - (frames.last || now)); frames.last = now;
+      if (now - lastReport > 2000) { const a = frames.slice(1).sort((x, y) => x - y), n = a.length;
+        if (n) fetch('/perf?avg=' + (a.reduce((p, c) => p + c, 0) / n).toFixed(3) + '&p95=' + a[Math.floor(n * .95)].toFixed(3) + '&max=' + a[n - 1].toFixed(3) + '&n=' + n).catch(() => {});
+        frames.length = 0; lastReport = now; } }
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);

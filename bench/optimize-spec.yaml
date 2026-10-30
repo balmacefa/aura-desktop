@@ -1,0 +1,78 @@
+# Especificación para el skill ce-optimize: reducir el coste de CPU de Aura en reposo sin perder fluidez.
+name: aura-idle-cost
+description: Menos CPU/memoria con Aura funcionando en reposo (widgets + panel + fondo interactivo) manteniendo la fluidez
+
+metric:
+  primary:
+    type: hard
+    name: idle_cost_cpu_pct
+    direction: minimize
+  objectives:
+    - name: covered_cpu_pct
+      direction: minimize
+      role: required          # con una ventana maximizada encima NO debe malgastarse CPU
+  degenerate_gates:
+    - name: tests_ok
+      check: "== 1"
+      description: Las 27 pruebas deben seguir pasando
+    - name: scenes_ok
+      check: "== 1"
+      description: Todas las escenas deben arrancar
+    - name: fps_min
+      check: ">= 28"
+      description: Fluidez mínima medida dentro de la página (en reposo puede bajar a 30)
+    - name: frame_p95_ms_max
+      check: "<= 45"
+      description: Sin tirones visibles
+  diagnostics:
+    - name: widgets_cpu_pct
+    - name: panel_cpu_pct
+    - name: scene_cpu_pct
+    - name: status_ms
+    - name: refresh_ms
+    - name: bridge_rps
+    - name: scene_rss_mb
+    - name: widgets_rss_mb
+    - name: switch_s
+
+measurement:
+  command: "python bench/bench.py"
+  timeout_seconds: 240
+  working_directory: "."
+  stability:
+    mode: repeat
+    repeat_count: 3
+    aggregation: median
+    noise_threshold: 2.0      # puntos de % de un núcleo
+
+scope:
+  mutable:
+    - "aura.py"
+    - "aura_ui.py"
+    - "desk/auradesk.py"
+    - "wall/aurawall.py"
+    - "wall/live/live.py"
+    - "wall/live/lib/aura.js"
+    - "wall/live/scenes/"
+  immutable:
+    - "bench/"
+    - "tests/"
+
+execution:
+  mode: serial          # medir CPU compartiendo máquina: en paralelo se falsean los resultados
+  backend: worktree
+  max_concurrent: 1
+
+dependencies:
+  approved: []
+
+constraints:
+  - "Sin dependencias nuevas (solo stdlib)"
+  - "Mantener el fundido entre fondos y la interacción con ratón/clics"
+  - "No quitar los hooks ?bench=1 de aura.js ni /perf de live.py"
+
+stopping:
+  max_iterations: 8
+  max_hours: 2
+  plateau_iterations: 3
+  target_reached: false

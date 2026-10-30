@@ -4,3 +4,4 @@ __pycache__/
 aura.json
 wall/media/custom.mp4
 dist/
+.context/
