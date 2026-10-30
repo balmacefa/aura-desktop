@@ -11,6 +11,9 @@ metric:
     - name: covered_cpu_pct
       direction: minimize
       role: required          # con una ventana maximizada encima NO debe malgastarse CPU
+      max_regression:         # su ruido entre ejecuciones (~±8 puntos) supera el umbral general
+        type: relative
+        value: 0.15
   degenerate_gates:
     - name: tests_ok
       check: "== 1"

@@ -353,8 +353,7 @@ class Panel(tk.Tk):
 
     def update_state(self):
         def job():
-            d = bool(aura.desk_pids())
-            w = bool(aura.json.loads(subprocess.run([aura.PY, aura.WALL, 'status'], capture_output=True, text=True).stdout or '{}').get('activo'))
+            d, w = aura.snapshot()                                         # lectura de archivos y comprobación de procesos: sin subprocesos
             self.after(0, lambda: self.apply_state(d, w))
         threading.Thread(target=job, daemon=True).start()
 

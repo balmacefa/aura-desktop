@@ -219,7 +219,7 @@ def stop():
 if __name__ == '__main__':
     cmd = sys.argv[1] if len(sys.argv) > 1 else ''
     if cmd == 'run' and len(sys.argv) > 2:
-        run(sys.argv[2], sys.argv[3] if len(sys.argv) > 3 and not sys.argv[3].startswith('--') else '', pause_on_battery='--battery-ok' not in sys.argv)
+        run(sys.argv[2], sys.argv[3] if len(sys.argv) > 3 and not sys.argv[3].startswith('--') else '', pause_on_battery='--battery-ok' not in sys.argv and not BENCH)
     elif cmd == 'start' and len(sys.argv) > 2:
         pyw = shutil.which('pythonw') or sys.executable
         subprocess.Popen([pyw, os.path.abspath(__file__), 'run'] + sys.argv[2:], creationflags=0x00000008)

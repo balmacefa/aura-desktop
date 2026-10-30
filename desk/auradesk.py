@@ -373,7 +373,17 @@ REGISTRY = (('claude', ClaudeButton), ('clock', Clock), ('system', SystemW), ('c
             ('battery', BatteryW), ('pomodoro', PomodoroW), ('network', NetworkW))
 
 
+def write_pid():
+    """Archivo .pid (pid:instante de creación) para que el panel sepa si los widgets están en marcha sin lanzar procesos."""
+    h = k32.OpenProcess(0x1000, False, os.getpid())
+    c, e, k, u = (wt.FILETIME() for _ in range(4))
+    k32.GetProcessTimes(h, ctypes.byref(c), ctypes.byref(e), ctypes.byref(k), ctypes.byref(u)); k32.CloseHandle(h)
+    os.makedirs(CFG_DIR, exist_ok=True)
+    with open(os.path.join(CFG_DIR, 'desk.pid'), 'w') as f: f.write(f'{os.getpid()}:{(c.dwHighDateTime << 32) | c.dwLowDateTime}')
+
+
 def main():
+    write_pid()
     cfg, on = load_cfg(), enabled_widgets()
     log.info('widgets: arrancan %s', [n for n, _ in REGISTRY if on.get(n, True)])
     root = tk.Tk(); root.withdraw()

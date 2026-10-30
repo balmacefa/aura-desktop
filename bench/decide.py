@@ -6,7 +6,7 @@ STATE = os.path.join(ROOT, '.context', 'compound-engineering', 'ce-optimize', 'a
 CANDIDATES = (r'~\.claude\skills\ce-optimize\scripts\decide.mjs', r'~\.agents\skills\ce-optimize\scripts\decide.mjs')
 SKILL = next(p for p in (os.path.expanduser(c) for c in CANDIDATES) if os.path.exists(p))
 SPEC = {'metric': {'primary': {'type': 'hard', 'name': 'idle_cost_cpu_pct', 'direction': 'minimize'},
-                   'objectives': [{'name': 'covered_cpu_pct', 'direction': 'minimize', 'role': 'required'}],
+                   'objectives': [{'name': 'covered_cpu_pct', 'direction': 'minimize', 'role': 'required', 'max_regression': {'type': 'relative', 'value': 0.15}}],
                    'degenerate_gates': [{'name': 'tests_ok', 'check': '== 1'}, {'name': 'scenes_ok', 'check': '== 1'},
                                         {'name': 'fps_min', 'check': '>= 28'}, {'name': 'frame_p95_ms_max', 'check': '<= 45'}]},
         'measurement': {'stability': {'mode': 'repeat', 'repeat_count': 3, 'aggregation': 'median', 'noise_threshold': 2.0}}}

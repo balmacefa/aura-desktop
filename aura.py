@@ -23,6 +23,7 @@ WALL = os.path.join(ROOT, 'wall', 'aurawall.py')
 LIVE = os.path.join(ROOT, 'wall', 'live', 'live.py')
 MEDIA = os.path.join(ROOT, 'wall', 'media')
 CONF = os.path.join(ROOT, 'aura.json')
+DESK_PID = os.path.join(os.environ.get('LOCALAPPDATA', os.path.expanduser('~')), 'AuraDesk', 'desk.pid')
 STATE = os.path.join(os.environ.get('LOCALAPPDATA', os.path.expanduser('~')), 'AuraWall', 'state.json')
 DEFAULT = {'mode': 'video', 'scene': 'estela', 'video': 'wall/media/aura_flow.mp4', 'palette': ['0e0e18', 'd97757', '1d1b3a', '3a1b2a'], 'speed': 0.012, 'seconds': 30}
 HEX6 = re.compile(r'^[0-9a-fA-F]{6}$')
@@ -98,20 +99,43 @@ def read_state():
     except (OSError, ValueError): return {}
 
 
-def desk_pids():
+def _ctime(pid):
+    """Instante de creación del proceso (identifica el proceso aunque Windows reutilice el PID)."""
+    h = ctypes.windll.kernel32.OpenProcess(0x1000, False, int(pid or 0))
+    if not h: return None
+    c, e, k, u = (wt.FILETIME() for _ in range(4))
+    ok = ctypes.windll.kernel32.GetProcessTimes(h, ctypes.byref(c), ctypes.byref(e), ctypes.byref(k), ctypes.byref(u)); ctypes.windll.kernel32.CloseHandle(h)
+    return ((c.dwHighDateTime << 32) | c.dwLowDateTime) if ok else None
+
+
+def desk_pids(deep=False):
+    """PIDs de los widgets. Rápido (archivo .pid + comprobación del proceso, sin subprocesos); `deep` añade un escaneo con PowerShell
+    para detectar instancias antiguas que no escriben el archivo (solo se usa al arrancar o parar)."""
+    try:
+        with open(DESK_PID) as f: pid, ct = (int(x) for x in f.read().split(':'))
+        if _alive(pid) and _ctime(pid) == ct: return [pid]
+    except (OSError, ValueError):
+        pass
+    if not deep: return []
     out = subprocess.run(['powershell', '-NoProfile', '-Command',
         "(Get-CimInstance Win32_Process -Filter \"Name='pythonw.exe'\" | Where-Object CommandLine -match 'auradesk\\.py').ProcessId"],
         capture_output=True, text=True).stdout.split()
     return [int(x) for x in out]
 
 
+def snapshot():
+    """(widgets en marcha, fondo en marcha): lo que refresca el panel cada 5 s. Sin subprocesos."""
+    st = read_state()
+    return bool(desk_pids()), bool(st.get('daemon') and _alive(st['daemon']))
+
+
 def desk(action):
     if action == 'start':
-        if not desk_pids():
+        if not desk_pids(deep=True):
             subprocess.Popen([PYW, DESK], creationflags=0x00000008)
             log.info('widgets: arrancados')
     elif action == 'stop':
-        for p in desk_pids():
+        for p in desk_pids(deep=True):
             subprocess.run(['taskkill', '/PID', str(p), '/F'], capture_output=True)
         log.info('widgets: detenidos')
 
@@ -189,8 +213,8 @@ def apply_scene(name):
 
 
 def status():
-    w = subprocess.run([PY, WALL, 'status'], capture_output=True, text=True).stdout.strip()
-    print(json.dumps({'desk_pids': desk_pids(), 'wall': json.loads(w or '{}'), 'video': os.path.exists(video_path())}, ensure_ascii=False))
+    st = read_state(); d, w = snapshot()
+    print(json.dumps({'desk_pids': desk_pids(), 'wall': {**st, 'activo': w}, 'video': os.path.exists(video_path())}, ensure_ascii=False))
 
 
 def doctor():

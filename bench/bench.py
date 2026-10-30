@@ -85,6 +85,13 @@ def covered_cpu(fam, seconds):
     finally: root.destroy()
 
 
+def shell_windows(minimize):
+    """Despeja el escritorio (o restaura las ventanas): sin esto una ventana a pantalla completa pausa el fondo y la medición sale vacía."""
+    verb = 'MinimizeAll' if minimize else 'UndoMinimizeAll'
+    subprocess.run(['powershell', '-NoProfile', '-Command', f'(New-Object -ComObject Shell.Application).{verb}()'], capture_output=True, creationflags=0x08000000)
+    time.sleep(1.5)
+
+
 def perf_dump(port):
     try:
         c = http.client.HTTPConnection('127.0.0.1', port, timeout=3); c.request('GET', '/perfdump'); r = c.getresponse()
@@ -137,7 +144,9 @@ def main():
     log('widgets_cpu_pct', m['widgets_cpu_pct'])
 
     cpus, fpss, p95s, rps, rss, sw, ok_all = [], [], [], [], [], [], 1
-    for name in names:
+    shell_windows(True)
+    try:
+      for name in names:
         t = time.time()
         try: aura.apply_scene(name); started = 1
         except Exception as e: log('no arrancó', name, e); started = 0; ok_all = 0
@@ -157,6 +166,8 @@ def main():
             m['covered_cpu_pct'] = round(covered_cpu(fam, max(3, seconds / 2)), 2); log('covered_cpu_pct', m['covered_cpu_pct'])
         m[f'{name}_cpu_pct'] = round(cpu, 2); m[f'{name}_procs'] = len(fam)
         log(name, 'cpu%', round(cpu, 1), 'fps', m.get(f'{name}_fps'), 'procs', len(fam))
+    finally:
+        shell_windows(False)                                                  # devuelve las ventanas del usuario
     m['scene_cpu_pct'] = round(statistics.mean(cpus), 2) if cpus else 99.0
     m['scene_rss_mb'] = round(statistics.mean(rss), 1) if rss else 0.0
     m['fps_min'] = round(min(fpss), 1) if fpss else 0.0
