@@ -29,8 +29,12 @@
   addEventListener('mouseup', () => { if (!s.live) s.down = false; });
   if (!s.live) s.hour = new Date().getHours() + new Date().getMinutes() / 60;
 
+  let lastActive = performance.now(), skip = false;
   function frame(now) {
     if (!inflight && now >= retryAt) poll();
+    // En reposo (cursor quieto, sin clics, 2 s) se dibuja a 30 fps en vez de 60: mitad de trabajo y de CPU; con actividad vuelve a 60 al instante.
+    if (Math.abs(s.x - px) + Math.abs(s.y - py) > 4e-4 || s.down || s.clicks !== lastClicks) lastActive = now;
+    if (now - lastActive > 2000 && (skip = !skip)) { requestAnimationFrame(frame); return; }
     s.dt = Math.min(.05, (now - lastT) / 1000); lastT = now; s.t += s.dt;
     s.w = Math.round(innerWidth * s.dpr); s.h = Math.round(innerHeight * s.dpr);
     const k = 1 - Math.exp(-s.dt * 12); s.sx += (s.x - s.sx) * k; s.sy += (s.y - s.sy) * k;
