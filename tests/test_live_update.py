@@ -20,7 +20,7 @@ class BridgeTests(unittest.TestCase):
     def get(self, path, host=None, method='GET'):
         c = http.client.HTTPConnection('127.0.0.1', self.port, timeout=5)
         c.putrequest(method, path, skip_host=True); c.putheader('Host', host or f'127.0.0.1:{self.port}'); c.endheaders()
-        r = c.getresponse(); body = r.read(); return r, body
+        r = c.getresponse(); body = r.read(); c.close(); return r, body
 
     def test_state_has_the_contract_keys(self):
         r, body = self.get('/state'); self.assertEqual(r.status, 200)
