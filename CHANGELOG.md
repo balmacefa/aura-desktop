@@ -3,6 +3,12 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/);
 el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
+## [Unreleased]
+
+### Added
+- Website: anonymous, cookieless visit counter (no IP, no third parties, honours Do Not Track / GPC), JSON-LD `SoftwareApplication` data, working social preview image, canonical URL on `aura.balmacefa.com`. The app itself is unchanged and still has no telemetry. See `docs/ANALYTICS.md`.
+- `docs/PROMOTION.md`: honest-and-compliant promotion plan with unpublished drafts and a pre-publish checklist.
+
 ## [2.0.0] - 2026-10-30
 
 First public release.

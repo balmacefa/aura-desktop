@@ -83,4 +83,35 @@
   });
   applyLang(detect());
   loadRelease();
+
+  // Anonymous first-party counter (see docs/ANALYTICS.md): no cookies, no identifiers, no third parties.
+  // Only runs on the production domain and never when the visitor sends Do Not Track / Global Privacy Control.
+  var optOut = navigator.doNotTrack === '1' || window.doNotTrack === '1' || navigator.globalPrivacyControl === true;
+  var counting = location.hostname === 'aura.balmacefa.com' && !optOut && !!navigator.sendBeacon;
+  function clean(v) { return (v || '').replace(/[^\w.-]/g, '').slice(0, 40); }
+  function track(name, extra) {
+    if (!counting) return;
+    try { navigator.sendBeacon('/e/?n=' + clean(name) + (extra || '')); } catch (e) {}
+  }
+  var q = new URLSearchParams(location.search), ref = '';
+  try { ref = document.referrer ? new URL(document.referrer).hostname : ''; } catch (e) {}
+  if (ref === location.hostname) ref = '';
+  track('pv', '&r=' + clean(ref) + '&s=' + clean(q.get('utm_source')) + '&m=' + clean(q.get('utm_medium')) + '&c=' + clean(q.get('utm_campaign')));
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest && e.target.closest('a,button'); if (!a) return;
+    if (a.id === 'dl') track('download');
+    else if (a.id === 'play') track('demo_play');
+    else if (a.dataset && a.dataset.lang) track('lang_' + a.dataset.lang);
+    else if (a.href && /sponsors\/balmacefa/.test(a.href)) track('sponsor_click');
+    else if (a.href && /github\.com\/balmacefa\/aura-desktop\/?$/.test(a.href)) track('github_click');
+    else if (a.getAttribute && a.getAttribute('role') === 'tab') track('scene_' + SCENES[cur].id);
+  });
+  if (counting && 'IntersectionObserver' in window) { // which sections people actually reach
+    var seen = {}, io = new IntersectionObserver(function (es) {
+      es.forEach(function (en) {
+        if (en.isIntersecting && !seen[en.target.id]) { seen[en.target.id] = 1; track('section_' + en.target.id); }
+      });
+    }, { threshold: 0.4 });
+    document.querySelectorAll('main section[id]').forEach(function (s) { io.observe(s); });
+  }
 })();
