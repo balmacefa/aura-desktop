@@ -21,6 +21,9 @@ metric:
     - name: scenes_ok
       check: "== 1"
       description: Todas las escenas deben arrancar
+    - name: scenes_visible
+      check: "== 1"
+      description: El fondo debe verse en pantalla (píxeles reales distintos del fondo de Windows)
     - name: fps_min
       check: ">= 28"
       description: Fluidez mínima medida dentro de la página (en reposo puede bajar a 30)

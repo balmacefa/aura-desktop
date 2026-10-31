@@ -172,7 +172,7 @@ def launch(scene, palette):
     flags = ['--app=' + url, '--user-data-dir=' + PROFILE, '--inprivate', '--disable-sync', '--disable-extensions', '--no-first-run',
              '--no-default-browser-check', '--no-service-autorun', '--disable-component-update', f'--window-size={w},{h}', '--window-position=0,0',
              '--disable-features=CalculateNativeWinOcclusion', '--disable-background-timer-throttling', '--disable-renderer-backgrounding',
-             '--disable-backgrounding-occluded-windows', '--in-process-gpu', '--enable-gpu-rasterization', '--enable-zero-copy', '--disable-background-networking',
+             '--disable-backgrounding-occluded-windows', '--enable-gpu-rasterization', '--enable-zero-copy', '--disable-background-networking',
              '--disable-breakpad', '--disable-component-extensions-with-background-pages', '--disable-default-apps', '--disable-domain-reliability', '--autoplay-policy=no-user-gesture-required', '--start-fullscreen', '--hide-scrollbars', '--disable-infobars']
     return srv, subprocess.Popen([EDGE] + flags, creationflags=0x08000000, startupinfo=hidden())
 

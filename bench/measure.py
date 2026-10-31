@@ -3,7 +3,7 @@ import json, os, subprocess, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 STATE = os.path.join(ROOT, '.context', 'compound-engineering', 'ce-optimize', 'aura-idle-cost')
-GATES = ('tests_ok', 'scenes_ok', 'fps_min', 'frame_p95_ms_max')
+GATES = ('tests_ok', 'scenes_ok', 'scenes_visible', 'fps_min', 'frame_p95_ms_max')
 label, n = sys.argv[1], int(sys.argv[2]) if len(sys.argv) > 2 else 3
 runs = []
 for i in range(n):

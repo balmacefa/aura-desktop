@@ -9,6 +9,7 @@ Mide el coste de tener Aura funcionando en reposo (sin tocar el ratón) con proc
   bridge_rps           peticiones/s al puente /state; status_ms, refresh_ms, *_rss_mb, switch_s: diagnóstico
   tests_ok             1 si pasan las pruebas unittest (puerta)
   scenes_ok            1 si todas las escenas arrancaron (puerta)
+  scenes_visible       1 si el fondo se VE distinto del de Windows en píxeles reales (puerta; detecta ventanas que dibujan pero no se componen)
 
 Uso:  python bench/bench.py [--scenes estela,orbes] [--seconds 8] [--quick]
 Efectos: cambia el fondo del escritorio mientras mide y lo restaura al terminar. No mover el ratón durante la medición.
@@ -92,6 +93,22 @@ def shell_windows(minimize):
     time.sleep(1.5)
 
 
+def sample_grid():
+    """Colores reales del escritorio (lo que ve el usuario) en una rejilla central sin iconos ni widgets."""
+    gdi, usr = ctypes.windll.gdi32, ctypes.windll.user32
+    usr.GetDC.restype = ctypes.c_void_p; usr.ReleaseDC.argtypes = [ctypes.c_void_p, ctypes.c_void_p]; gdi.GetPixel.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_int]
+    dc = usr.GetDC(None); out = []
+    for y in (250, 400, 550, 700):
+        for x in (450, 600, 750, 900, 1050, 1200):
+            c = gdi.GetPixel(dc, x, y); out += [c & 255, c >> 8 & 255, c >> 16 & 255]
+    usr.ReleaseDC(None, dc)
+    return out
+
+
+def grid_diff(a, b):
+    return sum(abs(x - y) for x, y in zip(a, b)) / len(a)
+
+
 def perf_dump(port):
     try:
         c = http.client.HTTPConnection('127.0.0.1', port, timeout=3); c.request('GET', '/perfdump'); r = c.getresponse()
@@ -145,6 +162,8 @@ def main():
 
     cpus, fpss, p95s, rps, rss, sw, ok_all = [], [], [], [], [], [], 1
     shell_windows(True)
+    aura.wall('stop'); time.sleep(2.5); ref = sample_grid()                  # referencia: el fondo de Windows sin Aura
+    vis = []
     try:
       for name in names:
         t = time.time()
@@ -153,6 +172,7 @@ def main():
         sw.append(time.time() - t)
         if not started: continue
         time.sleep(3.5)                                                       # fundido y asentamiento
+        vis.append(grid_diff(ref, sample_grid()))                             # ¿se ve realmente algo distinto del fondo de Windows?
         st = aura.read_state(); fam = [st['daemon']] + family(st['player']); port = st.get('port')
         d0 = perf_dump(port) if port else None; t0 = time.time()
         cpu = cpu_pct(fam, seconds); d1 = perf_dump(port) if port else None
@@ -175,6 +195,8 @@ def main():
     m['bridge_rps'] = round(statistics.mean(rps), 1) if rps else 0.0
     m['switch_s'] = round(statistics.mean(sw), 2)
     m['scenes_ok'] = ok_all
+    m['scene_visible_diff'] = round(min(vis), 1) if vis else 0.0
+    m['scenes_visible'] = int(bool(vis) and min(vis) > 20)
     m['idle_cost_cpu_pct'] = round(m['widgets_cpu_pct'] + m['panel_cpu_pct'] + m['scene_cpu_pct'], 2)
 
     os.environ.pop('AURA_BENCH', None)                                         # el fondo del usuario se restaura SIN modo benchmark
