@@ -28,6 +28,8 @@ Aura pone un fondo vivo **detrás de los iconos del escritorio** en Windows 10/1
 
 **¿Por qué el aviso de SmartScreen?** SmartScreen avisa de cualquier programa nuevo o que no esté firmado con un certificado de pago. Aura es de código abierto y todavía no está firmado, así que Windows aún no lo conoce. Puedes verificar la descarga: cada versión publica `SHA256SUMS.txt`; compáralo con `Get-FileHash Aura-Setup-X.Y.Z.exe` en PowerShell. El código es público en este repositorio.
 
+**¿Windows 11 con Smart App Control?** Si está activado, bloquea los programas sin firma y no ofrece «Ejecutar de todas formas». Aura aún no está firmada, así que puede bloquearla. Opciones: esperar a un instalador firmado (pendiente) o desactivar Smart App Control en Seguridad de Windows › Control de aplicaciones y del navegador (Windows no permite volver a activarlo sin reinstalar). Verifica las descargas con `SHA256SUMS.txt`.
+
 La instalación es por usuario, no requiere permisos de administrador y se desinstala desde *Configuración > Aplicaciones*. El instalador está en inglés y español. No necesitas tener instalado Python, ffmpeg ni nada más.
 
 ## Características

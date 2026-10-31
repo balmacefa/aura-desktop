@@ -73,7 +73,7 @@
       .then(function (j) {
         var a = (j.assets || []).filter(function (x) { return /\.exe$/i.test(x.name); })[0];
         if (!a) return;
-        $('#dl').href = a.browser_download_url;
+        // The button deliberately stays on the releases page (not the .exe) so people can read the notes and SHA256SUMS first.
         dlInfo = { tag: j.tag_name, size: a.size }; renderMeta();
       }).catch(function () {});
   }

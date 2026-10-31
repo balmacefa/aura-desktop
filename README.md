@@ -28,6 +28,8 @@ Prefer no installer? Download the portable `Aura-portable-X.Y.Z.zip`, unzip it a
 
 **Why the SmartScreen warning?** SmartScreen warns about any program that is new or not signed with a paid code-signing certificate. Aura is open source and not yet signed, so Windows does not know it yet. You can verify your download: each release publishes `SHA256SUMS.txt`; compare it with `Get-FileHash Aura-Setup-X.Y.Z.exe` in PowerShell. The code is public in this repository.
 
+**Windows 11 Smart App Control?** If it is on, it blocks unsigned programs and offers no “Run anyway”. Aura is not signed yet, so it may be blocked. Options: wait for a signed installer (pending), or turn Smart App Control off in Windows Security › App & browser control (Windows does not allow turning it back on without a reinstall). Verify downloads with `SHA256SUMS.txt`.
+
 Installation is per user, needs no administrator rights, and uninstalls from *Settings > Apps*. The installer is available in English and Spanish. You do not need Python, ffmpeg or anything else installed.
 
 ## Features

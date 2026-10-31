@@ -45,7 +45,7 @@ Estado: **borradores preparados, nada publicado**. Cada publicación en un terce
 - [ ] Las cifras del texto siguen siendo ciertas con la última versión.
 - [ ] Hay GIF/captura real, no maquetas.
 - [ ] Se declara que soy el autor.
-- [ ] Se mencionan SmartScreen y la compatibilidad.
+- [ ] Se mencionan SmartScreen, Smart App Control (bloqueo sin “ejecutar de todas formas”) y la compatibilidad.
 - [ ] Se han leído las reglas de la comunidad.
 - [ ] El enlace lleva su `utm_source`.
 - [ ] Hay alguien disponible para responder en las siguientes horas.

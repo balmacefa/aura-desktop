@@ -7,6 +7,7 @@ el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
 ### Added
 - Website: anonymous, cookieless visit counter (no IP, no third parties, honours Do Not Track / GPC), JSON-LD `SoftwareApplication` data, working social preview image, canonical URL on `aura.balmacefa.com`. The app itself is unchanged and still has no telemetry. See `docs/ANALYTICS.md`.
+- Website: the download button now opens the GitHub releases list instead of the .exe; new FAQ entry and README note about Windows 11 Smart App Control blocking the unsigned installer.
 - `docs/PROMOTION.md`: honest-and-compliant promotion plan with unpublished drafts and a pre-publish checklist.
 
 ## [2.0.0] - 2026-10-30
