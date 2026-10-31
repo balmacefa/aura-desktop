@@ -207,15 +207,25 @@ def run(scene, palette='', pause_on_battery=True):
     a.reveal(hwnd, 1.6 if scene.startswith('godot-') else 1.0)              # deja que la escena dibuje su primer fotograma y la funde
     a.write_state(daemon=os.getpid(), player=proc.pid, file='live:' + scene, port=srv.server_address[1])  # a partir de aquí el demonio anterior se retira
     log.info('escena %s visible', scene)
-    paused = False
+    paused, covered_flag, godot = False, False, scene.startswith('godot-')
     try:
         while not a.handed_over(os.getpid()):
-            want = a.covered_by_fullscreen() or (pause_on_battery and a.on_battery())
+            cov = a.covered_by_fullscreen()
+            want = cov or (pause_on_battery and a.on_battery())
+            if cov != covered_flag:                                         # los widgets (tapados también) leen este indicador y dejan de actualizarse
+                covered_flag = cov; st = a.read_state(); st['covered'] = cov; a.write_state(**st)
             if want != paused:
-                u.ShowWindow(hwnd, 0 if want else 5); paused = want
+                if want:
+                    u.ShowWindow(hwnd, 0)
+                    if godot: a.set_suspended(proc.pid, True)               # Godot sigue dibujando aunque esté oculto: se congela el proceso
+                else:
+                    if godot: a.set_suspended(proc.pid, False)
+                    u.ShowWindow(hwnd, 5)
+                paused = want
             time.sleep(0.5)
     finally:
         log.info('escena %s: demonio termina', scene)
+        if paused and godot: a.set_suspended(proc.pid, False)
         proc.kill(); srv.shutdown(); shutil.rmtree(PROFILE, ignore_errors=True)
         if not a.handed_over(os.getpid()):
             a.write_state(); u.SystemParametersInfoW(0x0014, 0, None, 3)

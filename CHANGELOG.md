@@ -11,6 +11,7 @@ el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 - Puente del ratón con conexiones persistentes, estado lento en caché y consulta por fotograma; en reposo, 30 fps y ~9 consultas/s.
 - El fondo se pausa cuando cualquier ventana visible cubre el área de trabajo (no solo la de primer plano a pantalla completa).
 - Memoria de la escena web: ~1,1 GB → ~0,55 GB (opciones de Edge).
+- Escritorio tapado: el fondo de Godot se congela (antes seguía dibujando oculto, 21 % de núcleo → 0,3 %) y los widgets dejan de actualizarse (0,5 % → 0).
 
 ### Añadido
 - `bench/`: benchmark de rendimiento con puertas de calidad (incluida una comprobación de píxeles reales), `measure`, `decide` y `attribute`.

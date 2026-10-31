@@ -232,8 +232,12 @@ def run(path, pause_on_battery=True):
         else:
             set_suspended(proc.pid, False); u32.ShowWindow(hwnd, 5)
     try:
+        covered_flag = False
         while proc.poll() is None and not handed_over(os.getpid()):
-            want = covered_by_fullscreen() or (pause_on_battery and on_battery())
+            cov = covered_by_fullscreen()
+            want = cov or (pause_on_battery and on_battery())
+            if cov != covered_flag:                                         # los widgets leen este indicador y dejan de actualizarse
+                covered_flag = cov; st = read_state(); st['covered'] = cov; write_state(**st)
             if want != paused:
                 pause(want); paused = want
             time.sleep(0.5)

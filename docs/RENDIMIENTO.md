@@ -36,6 +36,23 @@ la componía bajo el escritorio, así que no se veía nada. La puerta de calidad
 la puerta `scenes_visible`, que compara píxeles reales del escritorio con el fondo de Windows; sin esa opción el fondo se ve y la mejora real de ese
 experimento es la memoria (1.048 → 556 MB), no la CPU.
 
+## Con el escritorio tapado (p. ej. usando Chrome maximizado)
+
+Medido con `python bench/covered.py` (% de un núcleo; incluye demonio y procesos del fondo):
+
+| Fondo | Visible | Tapado con ventana maximizada | Tapado con Chrome real |
+|---|---|---|---|
+| Web (Estela) | 21–24 | 0,3 | ~2 |
+| Godot (cristales 3D) | 14–21 | 0,3 (antes 21,4: seguía dibujando oculto) | — |
+| Vídeo (Cristal) | 2–27 | 0,3 | — |
+| Widgets | 0,5 | 0,00 | — |
+
+El fondo se oculta y, en Godot y vídeo, el proceso se congela; los widgets duermen porque el demonio marca `covered` en su estado. La memoria
+reservada se mantiene (web ~640 MB, Godot ~460 MB, vídeo ~160 MB): solo se libera al detener el fondo.
+
+**Límite conocido:** la pausa solo se activa cuando UNA ventana cubre todo el área de trabajo (maximizada o a pantalla completa). Si Chrome está
+en una ventana más pequeña, el escritorio se ve en los bordes y el fondo sigue dibujando.
+
 ## Cómo ejecutar el benchmark
 
 ```

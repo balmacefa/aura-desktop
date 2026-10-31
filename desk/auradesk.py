@@ -134,6 +134,21 @@ def save_cfg(cfg):
     os.replace(tmp, CFG)
 
 
+STATE = os.path.join(os.environ.get('LOCALAPPDATA', os.path.expanduser('~')), 'AuraWall', 'state.json')
+
+
+def desktop_covered():
+    """El demonio del fondo marca en su estado cuando una ventana tapa el escritorio. Los widgets, que quedan debajo, no se ven: no se actualizan."""
+    try:
+        with open(STATE, encoding='utf-8') as f: st = json.load(f)
+    except (OSError, ValueError):
+        return False
+    if not st.get('covered'): return False
+    h = k32.OpenProcess(0x1000, False, int(st.get('daemon') or 0))        # indicador obsoleto si el demonio ya no existe
+    if not h: return False
+    k32.CloseHandle(h); return True
+
+
 def enabled_widgets():
     try:
         with open(os.path.join(ROOT, 'aura.json'), encoding='utf-8') as f: return json.load(f).get('widgets', {})
@@ -389,8 +404,15 @@ def main():
     root = tk.Tk(); root.withdraw()
     widgets = [cls(root, cfg) for name, cls in REGISTRY if on.get(name, True)]
 
+    asleep = [False]
+
     def loop():
-        for w in widgets: w.tick()
+        if desktop_covered():
+            asleep[0] = True                                              # nadie los ve: sin trabajo
+        else:
+            if asleep[0]:
+                asleep[0] = False; _net_prev.clear(); _last[0] = None     # al despertar no se promedian los segundos dormidos
+            for w in widgets: w.tick()
         root.after(1000, loop)
     loop(); root.mainloop()
 
