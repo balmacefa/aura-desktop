@@ -5,3 +5,6 @@ aura.json
 wall/media/custom.mp4
 dist/
 .context/
+backup/
+bridge/
+*.bak
