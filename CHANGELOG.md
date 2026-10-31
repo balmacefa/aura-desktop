@@ -18,7 +18,7 @@ First public release.
 - Open-source project setup: package layout (`src/aura`), 31 tests, CI, release workflow, website, contribution and security docs.
 
 ### Changed
-- Config moved to `%LOCALAPPDATA%\Auraura.json` (single `scene` key; the 1.x format is migrated automatically).
+- Config moved to `%LOCALAPPDATA%\Aura\aura.json` (single `scene` key; the 1.x format is migrated automatically).
 - The Claude Code widget only appears when Claude Code is installed; the 3D crystals scene only when Godot 4 is installed.
 
 ### Removed
