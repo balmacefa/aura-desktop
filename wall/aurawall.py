@@ -130,14 +130,33 @@ def handed_over(me):
     return bool(d) and d != me
 
 
+dwm = ctypes.windll.dwmapi
+
+
 def covered_by_fullscreen():
-    """True si la ventana en primer plano cubre toda la pantalla (juego, vídeo, app a pantalla completa)."""
-    fg = u32.GetForegroundWindow()
-    if not fg or _cls(fg) in SHELL_CLASSES or _title(fg).startswith((TITLE, 'AuraLive')) or not u32.IsWindowVisible(fg):
-        return False                                    # el propio reproductor no cuenta como "ventana que tapa"
-    r = wt.RECT(); u32.GetWindowRect(fg, ctypes.byref(r))
-    w, h = screen_size()
-    return r.left <= 0 and r.top <= 0 and r.right >= w and r.bottom >= h
+    """True si alguna ventana normal y visible cubre todo el área de trabajo (maximizada o a pantalla completa): el escritorio no se ve y
+    dibujar el fondo es CPU tirada. Se ignoran las minimizadas, las «cloaked» (UWP ocultas), las de herramientas/transparentes y las propias."""
+    wa = wt.RECT(); u32.SystemParametersInfoW(0x30, 0, ctypes.byref(wa), 0)            # SPI_GETWORKAREA: pantalla sin la barra de tareas
+    hit = []
+    cloaked, r = ctypes.c_int(0), wt.RECT()
+
+    def cb(h, _):
+        if not u32.IsWindowVisible(h) or u32.IsIconic(h):
+            return True
+        if u32.GetWindowLongW(h, -20) & (0x80 | 0x08000000 | 0x20):                     # TOOLWINDOW | NOACTIVATE | TRANSPARENT
+            return True
+        title = _title(h)
+        if not title or _cls(h) in SHELL_CLASSES | {'Windows.UI.Core.CoreWindow'} or title.startswith((TITLE, 'AuraLive')):
+            return True                                                                  # sin título = marco UWP vacío; CoreWindow = superposiciones del sistema
+        cloaked.value = 0
+        if dwm.DwmGetWindowAttribute(h, 13, ctypes.byref(cloaked), 4) == 0 and cloaked.value:   # DWMWA_CLOAKED
+            return True
+        u32.GetWindowRect(h, ctypes.byref(r))
+        if r.left <= wa.left + 8 and r.top <= wa.top + 8 and r.right >= wa.right - 8 and r.bottom >= wa.bottom - 8:   # una maximizada sobresale ~8 px
+            hit.append(h); return False
+        return True
+    u32.EnumWindows(EnumProc(cb), 0)
+    return bool(hit)
 
 
 def battery_pct():
