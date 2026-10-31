@@ -1,0 +1,113 @@
+<!doctype html><meta charset="utf-8"><title>Aura demo</title><meta name="viewport" content="width=device-width,initial-scale=1">
+<!-- Aurora: cortinas de luz (fbm en shader) sobre cielo estrellado y montañas. El cursor da parallax e inclina la aurora; el clic lanza una ráfaga que recorre las cortinas; CPU = intensidad y velocidad; de noche más estrellas y más viva. -->
+<script src="../lib/aura.js"></script>
+<script>
+const c = (document.body || document.documentElement).appendChild(document.createElement('canvas'));
+const gl = c.getContext('webgl', { antialias: false, alpha: false, powerPreference: 'high-performance' });
+const VS = 'attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}';
+const FS = `precision highp float;
+uniform vec2 R;uniform float T,CPU,NIGHT,BT;uniform vec2 M;uniform vec3 C0,C1,C2,C3;uniform float BX;
+float h21(vec2 p){p=fract(p*vec2(123.34,456.21));p+=dot(p,p+45.32);return fract(p.x*p.y);}
+float n2(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
+  return mix(mix(h21(i),h21(i+vec2(1,0)),f.x),mix(h21(i+vec2(0,1)),h21(i+vec2(1,1)),f.x),f.y);}
+float fbm(vec2 p){float a=.5,s=0.;for(int i=0;i<4;i++){s+=a*n2(p);p=p*2.03+vec2(7.1,3.7);a*=.5;}return s;}
+float ridge(float x,float seed){return fbm(vec2(x,seed))*.8+.2*n2(vec2(x*9.,seed));}
+vec3 stars(vec2 uv,float asp,float dens){
+  vec3 col=vec3(0.);
+  for(int l=0;l<2;l++){
+    float sc=l==0?60.:110.;
+    vec2 g=uv*vec2(sc*asp,sc),id=floor(g),f=fract(g)-.5;
+    float r=h21(id+float(l)*17.),r2=h21(id+31.7);
+    if(r>dens*(l==0?.14:.3))continue;
+    vec2 o=(vec2(r2,h21(id+9.1))-.5)*.6;
+    float d=length(f-o);
+    float tw=.55+.45*sin(T*(1.5+r2*4.)+r*60.);
+    float s=smoothstep(.09+.05*r2,0.,d)*tw*(.5+r2);
+    col+=s*mix(vec3(.8,.9,1.),vec3(1.,.9,.75),h21(id+3.3));
+  }
+  return col;
+}
+void main(){
+  vec2 uv=gl_FragCoord.xy/R;float asp=R.x/R.y;
+  vec2 m=(M-.5)*vec2(1.,-1.);               // cursor, y arriba
+  float hor=.24;
+  float inten=.55+.45*NIGHT;                // de día, tenue
+  inten*=.8+.5*CPU;
+  float sp=.35+CPU*.9;
+  float tt=T*sp;
+  // cielo
+  vec3 top=mix(C0,vec3(0.),.55),low=mix(C0,C2,.65);
+  vec3 sky=mix(low,top,smoothstep(hor,1.,uv.y));
+  sky=mix(sky,sky*.45+C0*.2,NIGHT*.6);
+  sky+=C1*.05*exp(-abs(uv.y-hor)*5.)*(.3+.7*NIGHT);
+  float dens=.25+.75*NIGHT;
+  vec2 suv=uv+m*vec2(.006,.004);
+  col_stars:;
+  vec3 col=sky+stars(suv,asp,dens)*smoothstep(hor-.02,hor+.25,uv.y)*(.25+.75*NIGHT);
+  // aurora: 3 capas de cortinas
+  vec3 au=vec3(0.);
+  float up=max(uv.y-hor,0.);
+  for(int i=0;i<3;i++){
+    float fi=float(i),depth=.4+fi*.3;
+    float x=uv.x*asp;
+    x+=m.x*depth*.35;                                       // parallax
+    x+=m.x*up*(1.6+fi*.4);                                  // inclinación hacia el cursor
+    x+=m.y*.0;
+    float wob=fbm(vec2(x*.9+fi*5.3,tt*.12+fi*2.1))*1.6;
+    float yb=hor+.1+fi*.06+m.y*.05*depth+.05*sin(x*1.3+tt*.3+fi*2.);
+    float w=x+wob;
+    float rays=fbm(vec2(w*5.+fi*11.,tt*.25+fi))*.7+fbm(vec2(w*14.,tt*.5-fi*3.))*.5;
+    float body=fbm(vec2(w*1.4+fi*3.7,tt*.1+fi*9.));
+    float dy=uv.y-yb;
+    float vert=smoothstep(-.015,.02,dy)*exp(-max(dy,0.)*(3.2+fi*.8))*(.5+rays);
+    vert*=smoothstep(.25,.65,body+.15);
+    vert*=smoothstep(hor,hor+.12,uv.y);
+    // ráfaga del clic: banda que viaja por las cortinas
+    float bx=BX*asp,d=abs(uv.x*asp-bx)-BT*1.5*(1.+fi*.15);
+    float burst=exp(-d*d*10.)*exp(-BT*.8)*step(0.,BT);
+    vert*=1.+burst*3.5;
+    vec3 lc=mix(C1,mix(C3,C2,.4),smoothstep(0.,.55,dy));      // base acento, cima secundaria
+    lc=mix(lc,vec3(.35,1.,.7)*.6+C1*.4,.18*(1.-fi*.3));
+    lc=mix(lc,vec3(1.),burst*.35);
+    au+=lc*vert*(.55-fi*.1);
+  }
+  col+=au*inten*1.5;
+  // reflejo tenue en el horizonte
+  col+=au.rgb*0.0;
+  // montañas (dos capas con parallax)
+  for(int k=0;k<2;k++){
+    float fk=float(k);
+    float px=uv.x*asp+m.x*(.03+fk*.05);
+    float hh=hor-.02+ridge(px*(1.6+fk*.9)+fk*13.,fk*3.+1.)*(.4-fk*.12)-.05*fk;
+    float edge=smoothstep(hh+.003,hh-.003,uv.y);
+    vec3 mc=mix(C0*.25,C2*.35,fk*.6+.2);
+    mc+=au*.06*(1.-fk);                                      // luz de aurora sobre las crestas
+    mc+=C1*.03*smoothstep(hh-.04,hh,uv.y);
+    col=mix(col,mc,edge);
+  }
+  // suelo
+  col=mix(col,C0*.12+au*.03,smoothstep(hor*.55,hor*.5,uv.y));
+  col*=1.-.35*dot(uv-.5,uv-.5);
+  col+=(h21(gl_FragCoord.xy+T)-.5)/255.;                    // dither
+  gl_FragColor=vec4(col,1.);
+}`.replace('col_stars:;', '');
+const sh = (t, s) => { const o = gl.createShader(t); gl.shaderSource(o, s); gl.compileShader(o); if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) console.error(gl.getShaderInfoLog(o)); return o; };
+const pr = gl.createProgram(); gl.attachShader(pr, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, FS)); gl.linkProgram(pr); gl.useProgram(pr);
+gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer()); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+const loc = gl.getAttribLocation(pr, 'p'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+const U = n => gl.getUniformLocation(pr, n);
+const u = { R: U('R'), T: U('T'), CPU: U('CPU'), NIGHT: U('NIGHT'), BT: U('BT'), M: U('M'), BX: U('BX'), C0: U('C0'), C1: U('C1'), C2: U('C2'), C3: U('C3') };
+[0, 1, 2, 3].forEach(i => gl.uniform3fv(u['C' + i], Aura.rgb(i).map(v => v / 255)));
+let scale = 1, ft = 0, nf = 0, bt = -1, bx = .5, W = 0, H = 0;
+Aura.onFrame((dt, s) => {
+  // resolución adaptativa: si baja de ~50 fps, reduce; si sobra, sube
+  ft += dt; nf++;
+  if (ft > 1) { const fps = nf / ft; ft = 0; nf = 0; if (fps < 50 && scale > .35) scale -= .15; else if (fps > 58 && scale < 1) scale = Math.min(1, scale + .05); }
+  const w = Math.max(2, Math.round(s.w * scale)), h = Math.max(2, Math.round(s.h * scale));
+  if (w !== W || h !== H) { c.width = W = w; c.height = H = h; gl.viewport(0, 0, w, h); }
+  if (s.clicked) { bt = 0; bx = s.x; } else if (bt >= 0) { bt += dt * (.6 + s.cpu); if (bt > 4) bt = -1; }
+  gl.uniform2f(u.R, w, h); gl.uniform1f(u.T, s.t); gl.uniform1f(u.CPU, s.cpu); gl.uniform1f(u.NIGHT, s.night);
+  gl.uniform1f(u.BT, bt); gl.uniform1f(u.BX, bx); gl.uniform2f(u.M, s.sx, s.sy);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+});
+</script>

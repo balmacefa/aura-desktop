@@ -1,0 +1,87 @@
+<!doctype html><meta charset="utf-8"><title>Aura demo</title><meta name="viewport" content="width=device-width,initial-scale=1">
+<!-- Orbes: metaballs luminosas tipo lava/vidrio; un orbe grande sigue al cursor y se funde con los demás; el clic lanza un anillo y hace rebotar los orbes; la CPU acelera; la noche oscurece y desatura. -->
+<script src="../lib/aura.js"></script>
+<script>
+const c = Aura.canvas(), N = 8;
+const gl = c.getContext('webgl', { antialias: false, alpha: false, powerPreference: 'high-performance' });
+const sc = () => Math.min(1, 1.25 / Aura.s.dpr);                      // resolución interna reducida en pantallas densas
+const fit = () => { c.width = Math.round(innerWidth * Aura.s.dpr * sc()); c.height = Math.round(innerHeight * Aura.s.dpr * sc()); };
+fit(); addEventListener('resize', fit);                               // se registra después del de Aura y lo sobrescribe
+const vs = 'attribute vec2 a;void main(){gl_Position=vec4(a,0.,1.);}';
+const fs = `precision highp float;
+uniform vec2 R; uniform vec3 O[${N}]; uniform vec3 C[4]; uniform vec3 K; uniform vec3 Q; uniform float T, NI, EN;
+// O: xy posición (alto=1), z radio. K: centro del anillo + edad. Q: x=intensidad del clic
+vec3 pc(int i){ if(i==${N - 1}) return C[1]; int m=i-3*(i/3); return m==0?C[1]:(m==1?C[2]:C[3]); }
+void main(){
+  float asp=R.x/R.y; vec2 p=vec2(gl_FragCoord.x/R.x*asp,1.-gl_FragCoord.y/R.y);
+  float f=0.; vec2 g=vec2(0.); vec3 cs=vec3(0.);
+  for(int i=0;i<${N};i++){
+    vec2 d=p-O[i].xy; float r2=O[i].z*O[i].z, q=dot(d,d)+1e-4, w=r2/q;
+    f+=w; g+=-2.*w*d/q; cs+=w*pc(i);
+  }
+  vec3 base=C[0], tint=cs/max(f,1e-3);
+  // fondo: degradado suave y halo exterior del campo
+  float vg=length(p-vec2(asp*.5,.5))/asp;
+  vec3 col=base*(1.-.25*vg)+ (C[2]*.5)*smoothstep(1.,0.,vg)*.5;
+  float halo=pow(clamp(f,0.,1.5),2.2)*.35; col+=tint*halo;
+  float body=smoothstep(.92,1.08,f);
+  if(body>0.){
+    vec3 n=normalize(vec3(-g*.035,1.));
+    vec3 L=normalize(vec3(-.4,-.6,.7));
+    float dif=clamp(dot(n,L)*.5+.5,0.,1.);
+    float spec=pow(clamp(dot(reflect(-L,n),vec3(0.,0.,1.)),0.,1.),24.);
+    float rim=pow(1.-n.z,1.5);                                         // borde tipo vidrio
+    float depth=clamp((f-1.)*.35,0.,1.);
+    vec3 glass=mix(tint*.55,tint*1.15,dif)+mix(vec3(0.),C[1],.4)*depth*.5;
+    glass+=C[1]*rim*.55+mix(tint,vec3(1.),.7)*spec*.9;
+    col=mix(col,glass,body);
+  }
+  // anillo del clic
+  float age=K.z; if(age<2.){
+    float rr=age*.9, dd=abs(length(p-K.xy)-rr), fade=exp(-age*1.8);
+    col+=mix(C[1],vec3(1.),.35)*(exp(-dd*dd*900.)*.9+exp(-dd*dd*60.)*.18)*fade;
+  }
+  // energía de CPU: brillo leve
+  col*=1.+EN*.15;
+  // noche: oscurece y desatura
+  float lum=dot(col,vec3(.299,.587,.114));
+  col=mix(col,vec3(lum),.55*NI)*(1.-.5*NI);
+  col+= (fract(sin(dot(gl_FragCoord.xy,vec2(12.9898,78.233)))*43758.5453)-.5)/255.;   // dither anti-banding
+  gl_FragColor=vec4(col,1.);
+}`;
+const sh = (t, s) => { const o = gl.createShader(t); gl.shaderSource(o, s); gl.compileShader(o); if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) console.error(gl.getShaderInfoLog(o)); return o; };
+const pr = gl.createProgram(); gl.attachShader(pr, sh(gl.VERTEX_SHADER, vs)); gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(pr); gl.useProgram(pr);
+gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer()); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+const al = gl.getAttribLocation(pr, 'a'); gl.enableVertexAttribArray(al); gl.vertexAttribPointer(al, 2, gl.FLOAT, false, 0, 0);
+const U = n => gl.getUniformLocation(pr, n), uR = U('R'), uO = U('O[0]'), uC = U('C[0]'), uK = U('K'), uT = U('T'), uN = U('NI'), uE = U('EN');
+const pal = [0, 1, 2, 3].flatMap(i => Aura.rgb(i).map(v => v / 255));
+// el color de acento domina; el fondo se aclara un poco para que el secundario/terciario se vean
+gl.uniform3fv(uC, new Float32Array(pal));
+
+// orbes: centro de órbita, amplitudes, frecuencias, fase, radio; más un offset de rebote con muelle
+const orbs = Array.from({ length: N - 1 }, (_, i) => ({
+  cx: .12 + Math.random() * .76, cy: .15 + Math.random() * .7, ax: .08 + Math.random() * .16, ay: .06 + Math.random() * .14,
+  fx: .05 + Math.random() * .08, fy: .05 + Math.random() * .08, ph: Math.random() * 6.283, r: .075 + Math.random() * .06,
+  ox: 0, oy: 0, vx: 0, vy: 0, ps: 0 }));
+const buf = new Float32Array(N * 3); let ring = [.5, .5, 9], pulse = 0, cr = .21, cursorR = .21, ph = 0;
+Aura.onFrame((dt, s) => {
+  const W = c.width, H = c.height, asp = W / H, en = .4 + s.cpu * 2.2;
+  ph += dt * en;                                                       // fase propia: la CPU acelera sin saltos
+  const mx = s.sx * asp, my = s.sy;
+  if (s.clicked) { ring = [mx, my, 0]; pulse = 1;
+    for (const o of orbs) { const dx = o.cx + o.ax * Math.cos(ph * o.fx * 6.283 + o.ph) + o.ox - mx, dy = o.cy + o.ay * Math.sin(ph * o.fy * 6.283) + o.oy - my, d = Math.hypot(dx, dy) + .05;
+      o.vx += dx / d * (.9 + .5 * s.cpu) / (.4 + d); o.vy += dy / d * (.9 + .5 * s.cpu) / (.4 + d); o.ps = 1; } }
+  ring[2] += dt; pulse *= Math.exp(-dt * 3);
+  for (let i = 0; i < orbs.length; i++) { const o = orbs[i];
+    o.vx += -o.ox * 18 * dt; o.vy += -o.oy * 18 * dt; o.vx *= Math.exp(-dt * 2.2); o.vy *= Math.exp(-dt * 2.2); o.ox += o.vx * dt; o.oy += o.vy * dt; o.ps *= Math.exp(-dt * 3);
+    const x = o.cx * asp / 1 * 1 + o.ax * asp * Math.cos(ph * o.fx * 6.283 + o.ph) + o.ox * 1, y = o.cy + o.ay * Math.sin(ph * o.fy * 6.283 + o.ph * 1.7) + o.oy;
+    const rr = o.r * (1 + .08 * Math.sin(ph * 1.3 + i) + .25 * o.ps);
+    buf[i * 3] = Math.min(asp, Math.max(0, x)) ; buf[i * 3 + 1] = Math.min(1, Math.max(0, y)); buf[i * 3 + 2] = rr; }
+  cursorR += ((s.down ? .27 : .2) + .03 * pulse + .02 * s.cpu - cursorR) * (1 - Math.exp(-dt * 8));
+  buf[(N - 1) * 3] = mx; buf[(N - 1) * 3 + 1] = my; buf[(N - 1) * 3 + 2] = cursorR;
+  gl.viewport(0, 0, W, H);
+  gl.uniform2f(uR, W, H); gl.uniform3fv(uO, buf); gl.uniform3f(uK, ring[0], ring[1], ring[2]);
+  gl.uniform1f(uT, s.t); gl.uniform1f(uN, s.night); gl.uniform1f(uE, s.cpu);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+});
+</script>

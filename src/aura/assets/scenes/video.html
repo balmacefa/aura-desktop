@@ -1,0 +1,12 @@
+<!doctype html><meta charset="utf-8"><title>AuraLive</title>
+<!-- Reproductor de vídeo/GIF de fondo: la ventana lo decodifica con la GPU del navegador, así que no hace falta ffmpeg. ?src=/media/<archivo> -->
+<style>html,body{margin:0;height:100%;overflow:hidden;background:#0e0e18}video,img{display:block;width:100vw;height:100vh;object-fit:cover}</style>
+<script>
+(function () {
+  const q = new URLSearchParams(location.search), src = q.get('src') || '';
+  if (!/^\/media\/[^\/\\?#]+$/.test(src)) return;                              // solo archivos de la carpeta de medios del puente
+  const el = /\.gif$/i.test(src) ? new Image() : Object.assign(document.createElement('video'), { autoplay: true, muted: true, loop: true, playsInline: true });
+  el.src = src; document.body.appendChild(el);
+  if (el.play) el.play().catch(() => {});
+})();
+</script>

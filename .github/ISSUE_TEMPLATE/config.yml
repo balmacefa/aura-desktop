@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/balmacefa/aura-desktop/security/advisories/new
+    about: Please report vulnerabilities privately, not as public issues.
+  - name: Questions and ideas
+    url: https://github.com/balmacefa/aura-desktop/discussions
+    about: Ask questions or share scenes in Discussions.

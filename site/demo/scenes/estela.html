@@ -1,0 +1,39 @@
+<!doctype html><meta charset="utf-8"><title>Aura demo</title><meta name="viewport" content="width=device-width,initial-scale=1">
+<!-- Estela: el cursor deja una estela de luz viva; los clics lanzan una onda de chispas; en reposo flotan luciérnagas que se agitan con la CPU. -->
+<script src="../lib/aura.js"></script>
+<script>
+const c = Aura.canvas(), g = c.getContext('2d'), P = [], bg = Aura.rgb(0), cols = [Aura.rgb(1), Aura.mix(Aura.rgb(1), [255, 255, 255], .35), Aura.mix(Aura.rgb(2), Aura.rgb(1), .6), Aura.mix(Aura.rgb(3), Aura.rgb(1), .7)];
+const add = (x, y, vx, vy, life, size, col) => { if (P.length < 4000) P.push({ x, y, vx, vy, life, max: life, size, col }); };
+for (let i = 0; i < 90; i++) add(Math.random() * c.width, Math.random() * c.height, 0, 0, 1e9, 2 + Math.random() * 3, cols[i % 4]);   // luciérnagas
+let lx = null, ly = null;
+Aura.onFrame((dt, s) => {
+  const W = c.width, H = c.height, speed = 1 + s.cpu * 3, D = s.dpr;
+  g.globalCompositeOperation = 'source-over';
+  g.fillStyle = Aura.css(Aura.mix(bg, [0, 0, 0], .15 * s.night), .16 + .1 * (1 - s.night)); g.fillRect(0, 0, W, H);     // deja rastro
+  const mx = s.sx * W, my = s.sy * H;
+  if (lx !== null) {                                                                  // estela: partículas interpoladas entre posiciones
+    const d = Math.hypot(mx - lx, my - ly), n = Math.min(40, 1 + d / (6 * D));
+    for (let i = 0; i < n; i++) { const t = i / n, a = Math.random() * 6.283, v = (20 + Math.random() * 60) * D;
+      add(lx + (mx - lx) * t, ly + (my - ly) * t, Math.cos(a) * v + s.vx * W * .05, Math.sin(a) * v + s.vy * H * .05, .7 + Math.random() * 1.1, (2 + Math.random() * 5) * D, cols[(Math.random() * 4) | 0]); }
+  }
+  lx = mx; ly = my;
+  if (s.clicked) for (let i = 0; i < 140; i++) { const a = i / 140 * 6.283, v = (200 + Math.random() * 500) * D;           // onda de chispas
+    add(mx, my, Math.cos(a) * v, Math.sin(a) * v, 1 + Math.random(), (2 + Math.random() * 4) * D, cols[(Math.random() * 4) | 0]); }
+  if (s.down) for (let i = 0; i < 4; i++) add(mx, my, (Math.random() - .5) * 300 * D, (Math.random() - .5) * 300 * D, .6, 4 * D, cols[1]);
+  g.globalCompositeOperation = 'lighter';
+  for (let i = P.length - 1; i >= 0; i--) {
+    const p = P[i];
+    if (p.max > 1e8) {                                                                // luciérnaga: deriva, se aparta del cursor
+      p.vx += (Math.random() - .5) * 40 * speed * D * dt; p.vy += (Math.random() - .5) * 40 * speed * D * dt;
+      const dx = p.x - mx, dy = p.y - my, d2 = dx * dx + dy * dy, r = 220 * D; if (d2 < r * r) { const f = (1 - Math.sqrt(d2) / r) * 900 * D * dt / (Math.sqrt(d2) + 1); p.vx += dx * f; p.vy += dy * f; }
+      p.vx *= .985; p.vy *= .985; p.x = (p.x + p.vx * dt + W) % W; p.y = (p.y + p.vy * dt + H) % H;
+      const a = .35 + .3 * Math.sin(s.t * 2 + i); g.fillStyle = Aura.css(p.col, a * (.6 + .4 * s.night)); g.beginPath(); g.arc(p.x, p.y, p.size, 0, 6.283); g.fill(); continue;
+    }
+    p.life -= dt; if (p.life <= 0) { P.splice(i, 1); continue; }
+    p.vx *= .96; p.vy *= .96; p.x += p.vx * dt; p.y += p.vy * dt;
+    const k = p.life / p.max, r = p.size * (.3 + k);
+    const gr = g.createRadialGradient(p.x, p.y, 0, p.x, p.y, r * 3); gr.addColorStop(0, Aura.css(p.col, .3 * k)); gr.addColorStop(1, Aura.css(p.col, 0));
+    g.fillStyle = gr; g.beginPath(); g.arc(p.x, p.y, r * 3, 0, 6.283); g.fill();
+  }
+});
+</script>

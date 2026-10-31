@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Aura – Animated, interactive wallpapers for Windows</title>
+<meta name="description" content="Free, open-source animated desktop wallpapers and 7 widgets for Windows 10/11. One-click installer, no telemetry, pauses when a window covers the desktop (0.3% CPU).">
+<meta name="theme-color" content="#0e0e18">
+<link rel="canonical" href="https://balmacefa.github.io/aura-desktop/">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Aura – Animated, interactive wallpapers for Windows">
+<meta property="og:description" content="Free and open source. 5 interactive scenes + 7 widgets. No telemetry.">
+<meta property="og:url" content="https://balmacefa.github.io/aura-desktop/">
+<meta property="og:image" content="https://balmacefa.github.io/aura-desktop/assets/social-preview.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Aura – Animated, interactive wallpapers for Windows">
+<meta name="twitter:description" content="Free and open source. 5 interactive scenes + 7 widgets. No telemetry.">
+<meta name="twitter:image" content="https://balmacefa.github.io/aura-desktop/assets/social-preview.png">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<a class="skip" href="#main" data-es="Saltar al contenido">Skip to content</a>
+<header class="top">
+  <a class="brand" href="#top" aria-label="Aura"><img src="assets/favicon.svg" alt="" width="28" height="28"><span>Aura</span></a>
+  <nav aria-label="Main">
+    <a href="#demos" data-es="Demos">Demos</a>
+    <a href="#features" data-es="Características">Features</a>
+    <a href="#install" data-es="Instalar">Install</a>
+    <a href="#faq">FAQ</a>
+    <a href="https://github.com/balmacefa/aura-desktop" rel="noopener">GitHub</a>
+  </nav>
+  <div class="lang" role="group" aria-label="Language">
+    <button type="button" data-lang="en" aria-pressed="true">EN</button>
+    <button type="button" data-lang="es" aria-pressed="false">ES</button>
+  </div>
+</header>
+
+<main id="main">
+<section class="hero" id="top">
+  <p class="eyebrow" data-es="Gratis · Código abierto · Windows 10/11">Free · Open source · Windows 10/11</p>
+  <h1 data-es="Tu escritorio, <em>vivo</em>.">Your desktop, <em>alive</em>.</h1>
+  <p class="lead" data-es="Fondos animados que reaccionan a tu ratón, a tus clics y a tu procesador, más 7 widgets útiles. Se instala con un clic y se pausa solo cuando no lo ves.">Animated wallpapers that react to your mouse, your clicks and your CPU, plus 7 handy widgets. One-click install, and it pauses itself when you can't see it.</p>
+  <div class="cta">
+    <a class="btn" id="dl" href="https://github.com/balmacefa/aura-desktop/releases/latest" rel="noopener">
+      <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 3v11.2l4.3-4.3 1.4 1.4L12 17 6.3 11.3l1.4-1.4L11 14.2V3zM5 19h14v2H5z"/></svg>
+      <span id="dl-text" data-es="Descargar para Windows">Download for Windows</span>
+    </a>
+    <p class="meta" id="dl-meta" aria-live="polite"></p>
+  </div>
+  <ul class="chips">
+    <li data-es="0,3 % de CPU con una ventana encima">0.3% CPU when covered</li>
+    <li data-es="Sin telemetría">No telemetry</li>
+    <li data-es="Se actualiza solo">Auto-updates</li>
+    <li data-es="Licencia MIT">MIT licence</li>
+  </ul>
+</section>
+
+<section id="demos">
+  <h2 data-es="Pruébalo ahora, en vivo">Try it live</h2>
+  <p class="sub" data-es="Son las mismas escenas que verás en tu escritorio. Mueve el ratón y haz clic dentro del recuadro.">These are the same scenes you'll get on your desktop. Move your mouse and click inside the frame.</p>
+  <div class="demo">
+    <div class="tabs" role="tablist" aria-label="Scenes" id="tabs"></div>
+    <div class="stage" id="stage">
+      <iframe id="frame" title="Aura scene" loading="lazy" tabindex="-1"></iframe>
+      <button type="button" class="play" id="play" data-es="Pulsa para activar la demo">Click to start the demo</button>
+    </div>
+    <p class="scene-desc" id="scene-desc" aria-live="polite"></p>
+  </div>
+</section>
+
+<section id="features">
+  <h2 data-es="Qué incluye">What you get</h2>
+  <div class="grid">
+    <article><h3 data-es="5 escenas interactivas">5 interactive scenes</h3><p data-es="Estela, Constelación, Orbes, Aurora boreal y Malla de olas. Reaccionan al ratón, a los clics y a la carga de la CPU.">Trail, Constellation, Orbs, Aurora and Wave mesh. They react to the mouse, clicks and CPU load.</p></article>
+    <article><h3 data-es="Ligero de verdad">Genuinely light</h3><p data-es="Cuando una ventana tapa el escritorio, el fondo se pausa: 0,3 % de CPU. Tu equipo no lo nota.">When a window covers the desktop the wallpaper pauses: 0.3% CPU. Your PC won't notice it.</p></article>
+    <article><h3 data-es="7 widgets">7 widgets</h3><p data-es="Reloj, sistema, calendario, batería, Pomodoro, red y Claude Code, directamente sobre tu fondo.">Clock, system, calendar, battery, Pomodoro, network and Claude Code, right on your wallpaper.</p></article>
+    <article><h3 data-es="Instalación de un clic">One-click install</h3><p data-es="Un instalador, sin configuraciones raras ni permisos de administrador complicados.">One installer, no fiddly setup.</p></article>
+    <article><h3 data-es="Se actualiza solo">Updates itself</h3><p data-es="Las novedades llegan automáticamente desde GitHub.">New versions arrive automatically from GitHub.</p></article>
+    <article><h3 data-es="Abierto y gratis">Free and open</h3><p data-es="Licencia MIT. Puedes leer el código, modificarlo y compartirlo.">MIT licence. Read the code, change it, share it.</p></article>
+  </div>
+</section>
+
+<section id="install">
+  <h2 data-es="Instalar en 3 pasos">Install in 3 steps</h2>
+  <ol class="steps">
+    <li><h3 data-es="Descarga el instalador">Download the installer</h3><p data-es="Pulsa «Descargar para Windows» arriba. Se guarda un archivo .exe en tu carpeta Descargas.">Press “Download for Windows” above. A .exe file is saved to your Downloads folder.</p></li>
+    <li><h3 data-es="Ábrelo (y no te asustes con el aviso)">Open it (and don't worry about the warning)</h3>
+      <p data-es="Windows puede mostrar una pantalla azul que dice «Windows protegió su PC». Es normal: Aura es un programa nuevo e independiente y aún no tiene la firma de pago que Microsoft reconoce. No significa que sea peligroso. Haz clic en <strong>Más información</strong> y después en <strong>Ejecutar de todas formas</strong>.">Windows may show a blue screen saying “Windows protected your PC”. That's normal: Aura is a new, independent app and doesn't have the paid signature Microsoft recognises yet. It does not mean it's dangerous. Click <strong>More info</strong>, then <strong>Run anyway</strong>.</p>
+      <p class="note" data-es="Si prefieres comprobarlo tú mismo, todo el código está público en GitHub.">If you'd rather check for yourself, all the code is public on GitHub.</p></li>
+    <li><h3 data-es="Disfruta">Enjoy</h3><p data-es="Elige una escena y los widgets que quieras. Listo: tu escritorio ya está vivo.">Pick a scene and the widgets you like. That's it: your desktop is alive.</p></li>
+  </ol>
+</section>
+
+<section id="privacy">
+  <h2 data-es="Privacidad y seguridad">Privacy and security</h2>
+  <div class="grid two">
+    <article><h3 data-es="Sin telemetría">No telemetry</h3><p data-es="Aura no envía estadísticas ni datos tuyos a ningún sitio. Lo único que consulta es GitHub, para saber si hay una versión nueva.">Aura sends no statistics or personal data anywhere. The only thing it contacts is GitHub, to check for a new version.</p></article>
+    <article><h3 data-es="Código verificable">Verifiable code</h3><p data-es="Es de código abierto bajo licencia MIT: cualquiera puede revisar exactamente qué hace.">It's open source under the MIT licence: anyone can review exactly what it does.</p></article>
+  </div>
+</section>
+
+<section id="faq">
+  <h2>FAQ</h2>
+  <details><summary data-es="¿Es gratis de verdad?">Is it really free?</summary><p data-es="Sí. Sin anuncios, sin versión de pago y sin cuenta. Si te gusta, puedes apoyar el proyecto (abajo).">Yes. No ads, no paid tier, no account. If you like it you can support the project (below).</p></details>
+  <details><summary data-es="¿Gasta mucha batería o CPU?">Does it use a lot of CPU or battery?</summary><p data-es="No. Cuando una ventana cubre el escritorio, el fondo se pausa y consume alrededor de un 0,3 % de CPU.">No. When a window covers the desktop the wallpaper pauses and uses about 0.3% CPU.</p></details>
+  <details><summary data-es="¿Qué versiones de Windows admite?">Which Windows versions are supported?</summary><p data-es="Windows 10 y Windows 11.">Windows 10 and Windows 11.</p></details>
+  <details><summary data-es="¿Por qué me sale el aviso de SmartScreen?">Why do I see a SmartScreen warning?</summary><p data-es="Porque el instalador no está firmado con un certificado de pago y Windows desconfía de lo poco conocido. Haz clic en «Más información» y luego en «Ejecutar de todas formas».">Because the installer isn't signed with a paid certificate and Windows is wary of little-known apps. Click “More info”, then “Run anyway”.</p></details>
+  <details><summary data-es="¿Cómo lo desinstalo?">How do I uninstall it?</summary><p data-es="Desde Configuración de Windows, Aplicaciones, como cualquier otro programa.">From Windows Settings, Apps, like any other program.</p></details>
+  <details><summary data-es="¿Recopila mis datos?">Does it collect my data?</summary><p data-es="No. No hay telemetría de ningún tipo.">No. There is no telemetry of any kind.</p></details>
+</section>
+
+<section id="support">
+  <h2 data-es="Apoya el proyecto">Support the project</h2>
+  <p class="sub" data-es="Aura es obra de una sola persona y siempre será gratis. Si te hace la vida un poco más bonita, ayúdame a mantenerlo.">Aura is made by one person and will always be free. If it makes your day a bit prettier, help keep it going.</p>
+  <div class="cta row">
+    <a class="btn" href="https://github.com/sponsors/balmacefa" rel="noopener" data-es="Patrocinar en GitHub">Sponsor on GitHub</a>
+    <a class="btn ghost" href="https://github.com/balmacefa/aura-desktop" rel="noopener" data-es="Dar una estrella al repo">Star the repo</a>
+  </div>
+</section>
+</main>
+
+<footer>
+  <p><span data-es="Aura · Licencia MIT · Hecho con cariño.">Aura · MIT licence · Made with care.</span> <a href="https://github.com/balmacefa/aura-desktop" rel="noopener">GitHub</a></p>
+</footer>
+<script src="js/main.js" defer></script>
+</body>
+</html>

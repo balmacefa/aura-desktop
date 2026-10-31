@@ -1,0 +1,35 @@
+<!doctype html><meta charset="utf-8"><title>AuraLive</title>
+<!-- Degradado: campo de color suave que fluye con los 4 colores de tu paleta; el cursor lo empuja ligeramente; de noche se apaga. Sin interacción obligatoria. -->
+<script src="../lib/aura.js"></script>
+<script>
+const c = Aura.canvas(), gl = c.getContext('webgl'), S = Aura.s;
+const sh = (t, src) => { const s = gl.createShader(t); gl.shaderSource(s, src); gl.compileShader(s); return s; };
+const pr = gl.createProgram();
+gl.attachShader(pr, sh(gl.VERTEX_SHADER, 'attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}'));
+gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, `precision mediump float;
+uniform vec2 R; uniform float T; uniform vec2 M; uniform float N; uniform vec3 A,B,C,D;
+float h(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+float n(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(h(i),h(i+vec2(1,0)),f.x),mix(h(i+vec2(0,1)),h(i+vec2(1,1)),f.x),f.y);}
+void main(){
+  vec2 uv=gl_FragCoord.xy/R; uv.x*=R.x/R.y;
+  vec2 m=M*vec2(R.x/R.y,1.);
+  vec2 q=uv+.18*vec2(n(uv*2.2+T*.05),n(uv*2.2-T*.04+5.))-(m-uv)*.04;
+  float a=n(q*1.6+T*.03), b=n(q*2.4-T*.05+9.);
+  vec3 col=mix(A,C,smoothstep(.2,.8,a));
+  col=mix(col,D,smoothstep(.35,.9,b)*.7);
+  col=mix(col,B,pow(smoothstep(.45,1.,n(q*1.1+vec2(T*.04,-T*.03)+2.)),2.)*(.75-.35*N));
+  col*=1.-.25*N;
+  gl_FragColor=vec4(col,1.);
+}`));
+gl.linkProgram(pr); gl.useProgram(pr);
+gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer()); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1,1,-1,-1,1,1,1]), gl.STATIC_DRAW);
+const loc = gl.getAttribLocation(pr, 'p'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+const U = n => gl.getUniformLocation(pr, n), rgb = i => Aura.rgb(i).map(v => v / 255);
+['A','B','C','D'].forEach((k, i) => gl.uniform3fv(U(k), rgb(i)));
+const speed = parseFloat(new URLSearchParams(location.search).get('speed')) || 1;
+Aura.onFrame((dt, s) => {
+  if (c.width !== gl.drawingBufferWidth) gl.viewport(0, 0, c.width, c.height);
+  gl.uniform2f(U('R'), c.width, c.height); gl.uniform1f(U('T'), s.t * 8 * speed); gl.uniform2f(U('M'), s.sx, 1 - s.sy); gl.uniform1f(U('N'), s.night);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+});
+</script>

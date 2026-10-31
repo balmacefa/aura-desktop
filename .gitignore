@@ -8,3 +8,7 @@ dist/
 backup/
 bridge/
 *.bak
+.venv/
+build/
+dist/
+installer/version_info.txt

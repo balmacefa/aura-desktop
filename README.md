@@ -1,88 +1,93 @@
+<p align="center"><img src="branding/social/banner.png" alt="Aura: living wallpapers and widgets for Windows" width="100%"></p>
+
+<p align="center">
+  <a href="https://github.com/balmacefa/aura-desktop/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/balmacefa/aura-desktop/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://github.com/balmacefa/aura-desktop/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/balmacefa/aura-desktop"></a>
+  <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/github/license/balmacefa/aura-desktop"></a>
+  <img alt="Windows 10/11" src="https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4">
+</p>
+
+<p align="center"><b>English</b> · <a href="README.es.md">Español</a></p>
+
 # Aura
 
-Escritorio personalizado para Windows 10/11: fondos animados (vídeo) o interactivos (reaccionan al ratón, a los clics y a la carga del equipo) que se ven detrás de los iconos, más widgets de escritorio (reloj, sistema, botón de Claude Code). Todo con Python y su biblioteca estándar, sin dependencias que instalar.
+Aura puts a living wallpaper **behind your desktop icons** on Windows 10/11: animated video or interactive scenes that react to your mouse, your clicks and your computer's load. It also adds small desktop widgets (clock, system monitor, calendar, Pomodoro and more). No telemetry, no account, no ads.
 
-## Requisitos
-- Windows 10 u 11.
-- Python 3.10 o superior con tkinter (el instalador oficial de python.org lo incluye).
-- Opcionales:
-  - **ffmpeg** (con ffplay): fondos en vídeo y degradados propios. `winget install Gyan.FFmpeg`
-  - **Microsoft Edge**: fondos interactivos web (viene con Windows).
-  - **Godot 4**: solo para la escena 3D `godot-cristal`.
-
-## Instalación
-Con el paquete de versión (`Aura-<versión>.zip`): extráelo y, en PowerShell, ejecuta
-
-```powershell
-.\install.ps1
-```
-
-Instala por usuario en `%LOCALAPPDATA%\Programs\Aura`, sin permisos de administrador. Opciones:
-
-| Parámetro | Efecto |
+| | |
 |---|---|
-| `-InstallDir <ruta>` | otra carpeta de instalación |
-| `-Autostart` | arranca Aura al iniciar sesión |
-| `-NoShortcuts` | no crea accesos en el menú Inicio |
-| `-NoRegistry` | no aparece en «Agregar o quitar programas» |
+| ![Aura wallpaper and widgets on the desktop](docs/img/desktop.png) | ![Background tab of the settings panel](docs/img/panel-background.png) |
+| ![First-run welcome](docs/img/welcome.png) | ![General tab of the settings panel](docs/img/panel-general.png) |
 
-Si falta Python: `winget install Python.Python.3.12`.
-También puedes usar Aura directamente desde la carpeta del código, sin instalar.
+## Install (3 steps, no technical knowledge needed)
 
-## Uso
-### Panel
-`python aura.py ui` (o el acceso «Aura» del menú Inicio). Paneles: Resumen, Fondo, Colores, Widgets y General. Atajos: Ctrl+1 a 5 para cambiar de panel, Esc para cerrar.
+1. Download `Aura-Setup-X.Y.Z.exe` (about 11.6 MB) from the [latest release](https://github.com/balmacefa/aura-desktop/releases/latest).
+2. Double-click it. If Windows shows a blue **"Windows protected your PC"** screen, click **More info**, then **Run anyway**.
+3. Open **Aura** from the Start menu (or its tray icon) and pick a scene. A short welcome appears the first time.
 
-### Línea de comandos
+Prefer no installer? Download the portable `Aura-portable-X.Y.Z.zip`, unzip it anywhere and run `Aura.exe`.
+
+**Why the SmartScreen warning?** SmartScreen warns about any program that is new or not signed with a paid code-signing certificate. Aura is open source and not yet signed, so Windows does not know it yet. You can verify your download: each release publishes `SHA256SUMS.txt`; compare it with `Get-FileHash Aura-Setup-X.Y.Z.exe` in PowerShell. The code is public in this repository.
+
+Installation is per user, needs no administrator rights, and uninstalls from *Settings > Apps*. The installer is available in English and Spanish. You do not need Python, ffmpeg or anything else installed.
+
+## Features
+- Wallpaper rendered **behind** the icons (works on Windows 11 24H2+).
+- **Interactive scenes** that follow the cursor and react to clicks, CPU load, battery and time of day.
+- Your own video or GIF as wallpaper (played through Edge, no ffmpeg needed) and an animated gradient with a 4-colour palette.
+- **Smooth crossfades** between wallpapers: you never see the plain Windows wallpaper in between (respects the "Show animations" Windows setting).
+- **Tray icon**: Open Aura, Pause/Resume, change wallpaper, Start with Windows, Check for updates, Quit.
+- First-run welcome and a settings panel with 5 tabs: Summary, Background, Colours, Widgets and General (Ctrl+1 to 5, Esc to close).
+- Interface in **English and Spanish** (follows the Windows language). Bundled Inter typeface (SIL OFL).
+- Pauses itself when a window covers the desktop, and on low battery.
+- Validated, atomically written configuration; a corrupt file is kept as `aura.json.bad`.
+- Built-in diagnostics: `doctor`.
+
+## Scenes
+Web scenes (rendered with Microsoft Edge): Trail (`estela`), Constellation (`constelacion`), Orbs (`orbes`), Aurora, Wave mesh (`malla`) and Gradient (new). Your own video or GIF also runs through Edge. The 3D scene "3D Crystals" (`godot-cristal`) appears only if Godot 4 is installed.
+
+## Widgets
+Clock, system (CPU / RAM / battery), calendar, battery, Pomodoro, network, and a Claude Code button (only shown if `claude` is installed). Widgets stop updating while the desktop is covered.
+
+## Privacy
+- **No telemetry.** Aura sends no usage data anywhere.
+- Interactive scenes use a local server listening only on `127.0.0.1` (random port), which validates the `Host` header and applies a strict CSP (a scene cannot talk to the internet).
+- Edge runs InPrivate, without sync or extensions, using a temporary profile deleted on stop.
+- The only external connection is the update check (see below). It can be turned off in *Settings > General*.
+- Your data lives in `%LOCALAPPDATA%\Aura`: `aura.json` (settings), `logs\aura.log`, `media\` (your own videos) and `updates\`.
+
+## Requirements
+Windows 10 or 11 and Microsoft Edge (included with Windows; Chrome works as an alternative). Nothing else: Python and ffmpeg are not needed. Optional: Godot 4 for the 3D scene (third-party software, not bundled).
+
+## Automatic updates
+Once a day Aura makes one anonymous request to the GitHub Releases API. If a newer version exists it only downloads it when you click **Update**. The installer must be named exactly `Aura-Setup-X.Y.Z.exe`, come over HTTPS from `github.com`, and match its SHA-256 in `SHA256SUMS.txt`; otherwise it is discarded. You can disable the check in *Settings > General*.
+
+## Command line
 ```
-python aura.py start [desk|wall|all]   arranca widgets y/o fondo
-python aura.py stop  [desk|wall|all]   detiene
-python aura.py status                  estado
-python aura.py scenes                  lista de escenas interactivas
-python aura.py scene <nombre>          aplica una escena interactiva
-python aura.py wallpaper <archivo>     usa un vídeo o GIF propio como fondo
-python aura.py gen [segundos]          genera el degradado animado propio
-python aura.py palette c0 c1 c2 c3     paleta de 4 colores hex (ej. 0e0e18 d97757 1d1b3a 3a1b2a)
-python aura.py speed <0.003-0.05>      velocidad del degradado
-python aura.py config                  muestra aura.json
-python aura.py install | uninstall     accesos del menú Inicio
-python aura.py doctor | version | logs
+Aura.exe doctor | status | scenes | scene <name> | video <file>
+Aura.exe palette c0 c1 c2 c3 | config | update | quit | logs | version
 ```
+From source: `python -m aura <command>` (with `src` on `PYTHONPATH`, or after `pip install -e .`).
 
-## Escenas
-Interactivas, en Edge: `estela`, `constelacion`, `orbes`, `aurora`, `malla`. En Godot 4: `godot-cristal`. Cambiar de fondo se hace con un fundido suave, sin mostrar nunca el fondo de Windows entre ambos.
+## Performance
+Measured on Windows 11, i5-1135G7, 3000x2000 at 200 %, interactive wallpaper idle (details in [docs/RENDIMIENTO.md](docs/RENDIMIENTO.md)):
 
-## Personalizar
-- **Colores y velocidad**: panel > Colores, o `aura.py palette ...` / `aura.py speed ...`.
-- **Fondo propio**: `aura.py wallpaper mi_video.mp4`.
-- **Configuración**: `aura.json` en la carpeta de Aura (se valida al leer; si está corrupto se conserva como `aura.json.bad` y se usan los valores por defecto).
+| Metric | Before | After |
+|---|---|---|
+| Idle cost (widgets + panel + scene, % of one core) | 126.5 | **21.3** |
+| With a window on top | 126.9 | **0.3** |
+| Scene memory (Edge) | ~1,108 MB | ~556 MB |
+| Bridge requests per second | 62 | 9 |
 
-## Privacidad y seguridad
-- Sin telemetría: Aura no envía datos a ningún sitio.
-- Los fondos interactivos usan un servidor local que escucha solo en `127.0.0.1` (puerto aleatorio), valida la cabecera `Host` y aplica una CSP restringida.
-- Edge se lanza en modo InPrivate, sin sincronización ni extensiones y con un perfil temporal que se borra al parar.
+60 fps while you interact, 30 fps when idle. Measurement noise is about +/-3 core points. Known limit: pausing only happens when a single window covers the whole work area.
 
-## Solución de problemas
-1. `python aura.py doctor` comprueba requisitos (Python, tkinter, escritorio, ffmpeg, Edge, Godot, registro, configuración).
-2. `python aura.py logs` muestra la ruta del registro; adjúntalo al informar de un fallo.
-3. El fondo no aparece: ejecuta `python aura.py stop` y luego `python aura.py start`.
+## Contributing
+Bug reports, scenes and pull requests are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md), the [Code of Conduct](CODE_OF_CONDUCT.md) and the [roadmap](ROADMAP.md). Security issues: [SECURITY.md](SECURITY.md).
 
-## Desinstalar
-```powershell
-.\uninstall.ps1                # desde la carpeta de instalación
-.\uninstall.ps1 -KeepSettings  # conserva aura.json
-```
-Detiene los procesos, quita accesos, la entrada del registro y los archivos.
+## Support the project
+If Aura is useful to you, you can sponsor its maintenance through [GitHub Sponsors](https://github.com/sponsors/balmacefa). The plan is in [docs/MONETIZATION.md](docs/MONETIZATION.md). The core stays free and open source.
 
-## Desarrollo
-- Tests: `python -m unittest discover -s tests`
-- Herramientas de diagnóstico del escritorio: `wall/devtools` (no se incluyen en el paquete).
-- Servir una escena en el navegador: `python wall/live/live.py serve 8791` y abrir `http://127.0.0.1:8791/scenes/<escena>.html`.
-- Crear una escena: añade `wall/live/scenes/<nombre>.html` que cargue `wall/live/lib/aura.js` y registre un callback con `Aura.onFrame((dt, s) => ...)`. El estado `s` trae cursor (`x`, `y`, suavizado `sx`, `sy`, velocidad `vx`, `vy`), `down`, `clicked`, `cpu`, `ram`, `bat`, `hour`, `night`, `t`, `dt`, `w`, `h`, `dpr`; la paleta está en `Aura.pal` (4 colores). La cabecera de `aura.js` documenta el contrato completo. La escena aparece sola en `aura.py scenes`.
-- Empaquetar: `.\scripts\build-release.ps1` crea `dist/Aura-<versión>.zip` y `dist/SHA256SUMS.txt`.
+## Third-party notices
+Godot and Microsoft Edge are not included; they have their own licences and their trademarks belong to their owners. The Inter typeface is bundled under the SIL Open Font License.
 
-## Avisos de terceros
-Godot, Microsoft Edge y ffmpeg **no se incluyen** en Aura: son software de terceros con sus propias licencias, que se instalan por separado y cuyas marcas pertenecen a sus titulares.
-
-## Licencia
-MIT, ver [LICENSE](LICENSE).
+## License
+[MIT](LICENSE).
