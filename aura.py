@@ -14,7 +14,7 @@
   python aura.py doctor                comprueba requisitos y estado (para soporte)
   python aura.py version | logs        versión / ruta del registro
 """
-__version__ = '1.0.0'
+__version__ = '1.1.0'
 import ctypes, ctypes.wintypes as wt, json, os, re, shutil, subprocess, sys, time
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
